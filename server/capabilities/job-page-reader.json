@@ -1,0 +1,23 @@
+{
+  "id": "job-page-reader",
+  "pluginKey": "@official-plugins/web-crawler",
+  "pluginVersion": "1.0.8",
+  "name": "岗位页面读取",
+  "description": "读取公开招聘页面并提取岗位原始信息",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "待读取的公开招聘页面链接"
+      }
+    },
+    "required": ["url"]
+  },
+  "formValue": {
+    "url": "{{input.url}}",
+    "processMode": "你是招聘信息整理助手。请忠实提取当前页面中的公司名称、岗位名称、工作地点、薪资、职责、任职要求、所属行业及岗位类别。只保留页面中能确认的信息，不要补写或猜测；忽略导航、广告、相似岗位和无关内容。"
+  },
+  "createdAt": 1786807251273,
+  "updatedAt": 1786807251273
+}
