@@ -387,128 +387,138 @@ export default function ApplicationList() {
         </div>
       </header>
 
-      <section className="application-filter-bar ui-surface sticky top-[72px] z-30 p-4 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl md:top-0 md:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <section className="application-filter-bar ui-surface sticky top-16 z-30 p-3 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl md:top-0 md:p-5">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400 md:left-3.5 md:size-5" />
             <Input
               type="search"
               value={filters.keyword || ''}
               placeholder="搜索公司或岗位名称"
-              className="h-11 border-slate-200 bg-slate-50 pl-11 text-base md:text-base"
+              className="h-10 border-slate-200 bg-slate-50 pl-9 text-sm md:h-11 md:pl-11 md:text-base"
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
                 updateFilter('keyword', event.target.value)
               }
             />
           </div>
-          <Select
-            value={sortBy}
-            onValueChange={(value: SortOption) => {
-              setSortBy(value);
-              setSortDirection(DEFAULT_SORT_DIRECTIONS[value]);
-            }}
-          >
-            <SelectTrigger className="h-11 w-full bg-white lg:w-48">
-              <ArrowUpDown className="size-4 text-slate-500" />
-              <SelectValue aria-label="排序方式" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>常用</SelectLabel>
-                <SelectItem value="updated">最近更新</SelectItem>
-                <SelectItem value="applied">投递时间</SelectItem>
-                <SelectItem value="status">当前进度</SelectItem>
-                <SelectItem value="company">公司名称</SelectItem>
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>岗位</SelectLabel>
-                <SelectItem value="function">职能方向</SelectItem>
-                <SelectItem value="channel">招聘渠道</SelectItem>
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>地点</SelectLabel>
-                <SelectItem value="location">工作地区</SelectItem>
-                <SelectItem value="industry">所属行业</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="h-11 min-w-24 bg-white px-3 font-bold text-slate-700"
-            onClick={() =>
-              setSortDirection((direction: SortDirection) =>
-                direction === 'asc' ? 'desc' : 'asc',
-              )
-            }
-            aria-label={`切换排序方向，当前为${sortDirectionLabel}`}
-            title={`当前排序：${sortDirectionLabel}`}
-          >
-            <ArrowUpDown className="size-4" />
-            {sortDirectionLabel}
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setShowFilters((visible: boolean) => !visible)}
-            className={
-              showFilters || activeFilterCount > 0
-                ? 'border-cyan-300 bg-cyan-50 text-cyan-900'
-                : ''
-            }
-          >
-            <Filter />
-            更多筛选
-            {activeFilterCount > 0 && (
-              <span className="rounded-full bg-cyan-700 px-2 py-0.5 text-xs font-bold text-white">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2 lg:flex lg:items-center">
+            <Select
+              value={sortBy}
+              onValueChange={(value: SortOption) => {
+                setSortBy(value);
+                setSortDirection(DEFAULT_SORT_DIRECTIONS[value]);
+              }}
+            >
+              <SelectTrigger className="h-10 min-w-0 bg-white px-2.5 text-xs sm:text-sm lg:h-11 lg:w-48 lg:px-3">
+                <ArrowUpDown className="size-3.5 shrink-0 text-slate-500 sm:size-4" />
+                <SelectValue aria-label="排序方式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>常用</SelectLabel>
+                  <SelectItem value="updated">最近更新</SelectItem>
+                  <SelectItem value="applied">投递时间</SelectItem>
+                  <SelectItem value="status">当前进度</SelectItem>
+                  <SelectItem value="company">公司名称</SelectItem>
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>岗位</SelectLabel>
+                  <SelectItem value="function">职能方向</SelectItem>
+                  <SelectItem value="channel">招聘渠道</SelectItem>
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>地点</SelectLabel>
+                  <SelectItem value="location">工作地区</SelectItem>
+                  <SelectItem value="industry">所属行业</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-10 min-w-0 bg-white px-2.5 text-xs font-bold text-slate-700 sm:min-w-24 sm:px-3 sm:text-sm lg:h-11"
+              onClick={() =>
+                setSortDirection((direction: SortDirection) =>
+                  direction === 'asc' ? 'desc' : 'asc',
+                )
+              }
+              aria-label={`切换排序方向，当前为${sortDirectionLabel}`}
+              title={`当前排序：${sortDirectionLabel}`}
+            >
+              <ArrowUpDown className="size-3.5 sm:size-4" />
+              {sortDirectionLabel}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setShowFilters((visible: boolean) => !visible)}
+              className={`h-10 min-w-0 px-2.5 text-xs font-bold sm:px-3 sm:text-sm lg:h-11 ${
+                showFilters || activeFilterCount > 0
+                  ? 'border-cyan-300 bg-cyan-50 text-cyan-900'
+                  : ''
+              }`}
+            >
+              <Filter className="size-3.5 sm:size-4" />
+              <span className="sm:hidden">筛选</span>
+              <span className="hidden sm:inline">更多筛选</span>
+              {activeFilterCount > 0 && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-cyan-700 text-[10px] font-bold text-white sm:w-auto sm:px-1.5">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex min-w-0 items-center gap-2 md:mt-4">
+          <span className="hidden shrink-0 text-sm font-semibold text-slate-600 sm:inline">
+            快捷进度
+          </span>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
+            <button
+              type="button"
+              onClick={() => updateFilter('status', '')}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold transition sm:px-3 sm:py-1.5 sm:text-sm ${
+                currentStatus === ''
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300'
+              }`}
+            >
+              全部
+            </button>
+            {QUICK_STATUSES.map((status: string) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => updateFilter('status', status)}
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold transition sm:px-3 sm:py-1.5 sm:text-sm ${
+                  currentStatus === status
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                    : `${getApplicationStatusTheme(status).quick} hover:-translate-y-0.5 hover:shadow-sm`
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
           {activeFilterCount > 0 && (
-            <Button variant="ghost" size="lg" onClick={() => setFilters({})}>
-              <X />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 px-2 text-xs sm:text-sm"
+              onClick={() => setFilters({})}
+            >
+              <X className="size-3.5" />
               清除
             </Button>
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm font-semibold text-slate-600">
-            快捷进度
-          </span>
-          <button
-            type="button"
-            onClick={() => updateFilter('status', '')}
-            className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-              currentStatus === ''
-                ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300'
-            }`}
-          >
-            全部
-          </button>
-          {QUICK_STATUSES.map((status: string) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => updateFilter('status', status)}
-              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-                currentStatus === status
-                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                  : `${getApplicationStatusTheme(status).quick} hover:-translate-y-0.5 hover:shadow-sm`
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-
         {showFilters && (
-          <div className="mt-5 grid grid-cols-1 gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 min-[360px]:grid-cols-2 md:mt-5 md:gap-4 md:pt-5 xl:grid-cols-4">
             <FilterSelect
               label="当前进度"
               value={filters.status || ''}
