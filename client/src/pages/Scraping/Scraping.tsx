@@ -273,7 +273,12 @@ export default function Scraping() {
       个人备注: (draft.personalNote || '').trim(),
       下一步安排: (draft.nextStep || '').trim(),
     };
-    if (draft.location) fields['工作地区'] = draft.location;
+    if (draft.location) {
+      fields['工作地区'] = draft.location
+        .split(/[,，、/]/)
+        .map((location: string) => location.trim())
+        .filter(Boolean);
+    }
     if (draft.industry) fields['所属行业'] = draft.industry;
     if (draft.functionDirection) {
       fields['职能方向'] = [draft.functionDirection];

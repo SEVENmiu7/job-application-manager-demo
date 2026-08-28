@@ -5,27 +5,29 @@ import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
 import { Button } from '@/components/ui/button';
-import {
-  toDatetimeLocalValue,
-  toUtcTimestamp,
-} from '@/lib/application-time';
+import { LocationMultiSelect } from '@/components/application/LocationMultiSelect';
+import { toDatetimeLocalValue, toUtcTimestamp } from '@/lib/application-time';
 import {
   STATUS_ORDER,
   LOCATION_OPTIONS,
   INDUSTRY_OPTIONS,
   FUNCTION_OPTIONS,
   CHANNEL_OPTIONS,
+  PROCESS_TIME_STAGES,
+  type ApplicationProcessStage,
+  type ApplicationProcessTimes,
 } from '../../../../shared/types';
 
 type FormData = {
   公司名称: string;
   岗位名称: string;
-  工作地区: string;
+  工作地区: string[];
   所属行业: string;
   职能方向: string[];
   招聘渠道: string;
   收藏时间: string;
   投递时间: string;
+  流程时间: Record<ApplicationProcessStage, string>;
   当前进度: string;
   下一步安排: string;
   个人备注: string;
@@ -37,12 +39,15 @@ type FormData = {
 const initialForm: FormData = {
   公司名称: '',
   岗位名称: '',
-  工作地区: '',
+  工作地区: [],
   所属行业: '',
   职能方向: [],
   招聘渠道: '',
   收藏时间: '',
   投递时间: '',
+  流程时间: Object.fromEntries(
+    PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [stage, '']),
+  ) as Record<ApplicationProcessStage, string>,
   当前进度: '收藏',
   下一步安排: '',
   个人备注: '',
@@ -84,12 +89,18 @@ export default function EditApplication() {
           setForm({
             公司名称: f['公司名称'] || '',
             岗位名称: f['岗位名称'] || '',
-            工作地区: f['工作地区'] || '',
+            工作地区: f['工作地区'] || [],
             所属行业: f['所属行业'] || '',
             职能方向: f['职能方向'] || [],
             招聘渠道: f['招聘渠道'] || '',
             收藏时间: toDatetimeLocalValue(f['收藏时间']),
             投递时间: toDatetimeLocalValue(f['投递时间']),
+            流程时间: Object.fromEntries(
+              PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
+                stage,
+                toDatetimeLocalValue(f['流程时间']?.[stage]),
+              ]),
+            ) as Record<ApplicationProcessStage, string>,
             当前进度: f['当前进度'] || '收藏',
             下一步安排: f['下一步安排'] || '',
             个人备注: f['个人备注'] || '',
@@ -127,10 +138,18 @@ export default function EditApplication() {
     try {
       const fields: Record<string, any> = {};
       for (const [k, v] of Object.entries(form)) {
-        fields[k] =
-          (k === '收藏时间' || k === '投递时间') && typeof v === 'string'
-            ? toUtcTimestamp(v)
-            : v;
+        if (k === '流程时间') {
+          fields[k] = Object.fromEntries(
+            Object.entries(v as ApplicationProcessTimes)
+              .map(([stage, time]) => [stage, toUtcTimestamp(time)])
+              .filter(([, time]) => Boolean(time)),
+          );
+        } else {
+          fields[k] =
+            (k === '收藏时间' || k === '投递时间') && typeof v === 'string'
+              ? toUtcTimestamp(v)
+              : v;
+        }
       }
       await api.updateApplication(id, fields);
       await refetchStats();
@@ -205,9 +224,9 @@ export default function EditApplication() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="工作地区">
-              <Select
+              <LocationMultiSelect
                 value={form.工作地区}
-                onChange={(v) => update('工作地区', v)}
+                onChange={(v: string[]) => update('工作地区', v)}
                 options={LOCATION_OPTIONS}
               />
             </FormField>
@@ -283,6 +302,32 @@ export default function EditApplication() {
               placeholder="如：等HR联系"
               className="form-input"
             />
+          </FormField>
+          <FormField label="测评与面试时间">
+            <p className="mb-3 text-xs leading-5 text-slate-500">
+              手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
+                <label
+                  key={stage}
+                  className="space-y-1.5 text-xs font-semibold text-slate-600"
+                >
+                  <span>{stage}</span>
+                  <input
+                    type="datetime-local"
+                    value={form.流程时间[stage]}
+                    onChange={(event) =>
+                      update('流程时间', {
+                        ...form.流程时间,
+                        [stage]: event.target.value,
+                      })
+                    }
+                    className="form-input"
+                  />
+                </label>
+              ))}
+            </div>
           </FormField>
         </FormSection>
 

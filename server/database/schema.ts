@@ -122,7 +122,7 @@ export const applications = pgTable("applications", {
   userId: varchar("user_id", { length: 64 }).notNull(),
   company: varchar("company", { length: 255 }).notNull(),
   position: varchar("position", { length: 255 }).notNull(),
-  location: varchar("location", { length: 64 }),
+  location: text("location"),
   industry: varchar("industry", { length: 64 }),
   functions: text("functions"),
   channel: varchar("channel", { length: 64 }),
@@ -139,6 +139,7 @@ export const applications = pgTable("applications", {
   jobRequirements: text("job_requirements"),
   createdAt: timestamp("created_at", { mode: 'string' }).notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at", { mode: 'string' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  processTimes: text("process_times"),
   // System field: Creator (auto-filled, do not modify)
   createdBy: userProfile("_created_by").default(sql`CASE
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),

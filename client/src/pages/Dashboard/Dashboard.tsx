@@ -42,6 +42,8 @@ import { toast } from 'sonner';
 
 import { api } from '@/api';
 import { InlineFieldEditor } from '@/components/application/InlineFieldEditor';
+import { InlineDateTimeEditor } from '@/components/application/InlineDateTimeEditor';
+import { ApplicationProcessTimeline } from '@/components/application/ApplicationProcessTimeline';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -72,6 +74,7 @@ import {
 } from '@/lib/application-time';
 import type { ApplicationRecord, StatusGroup } from '../../../../shared/types';
 import {
+  formatLocations,
   hasEnteredApplicationStage,
   STATUS_GROUPS,
   STATUS_ORDER,
@@ -244,7 +247,7 @@ export default function Dashboard() {
       [
         item.fields['公司名称'],
         item.fields['岗位名称'],
-        item.fields['工作地区'],
+        formatLocations(item.fields['工作地区']),
         item.fields['所属行业'],
       ].some((value: string) =>
         (value || '').toLocaleLowerCase('zh-CN').includes(normalizedKeyword),
@@ -312,9 +315,6 @@ export default function Dashboard() {
           api.updateApplication(application.record_id || '', {
             当前进度: getApplicationStatus(application),
             看板顺序: application.fields['看板顺序'],
-            ...(application.fields['投递时间']
-              ? { 投递时间: application.fields['投递时间'] }
-              : {}),
           }),
         ),
       );
@@ -999,16 +999,25 @@ function ApplicationCard({
         <span className="text-slate-400">更新</span>
         <LiveUpdateTime value={latestActivityTime} />
       </div>
-      {fields['投递时间'] && (
-        <div
-          className="mt-1 flex items-center gap-1.5 pl-[18px] text-[10px] text-slate-400"
-          title={`投递时间：${parseApplicationTime(fields['投递时间'])?.toLocaleString('zh-CN') || '未记录'}`}
-        >
-          <span>投递</span>
-          <time className="truncate">
-            {formatApplicationTime(fields['投递时间'])}
-          </time>
-        </div>
+      {!overlay && hasEnteredApplicationStage(status) && (
+        <InlineDateTimeEditor
+          label="投递时间"
+          value={fields['投递时间']}
+          emptyText="补充投递时间"
+          disabled={saving}
+          triggerClassName="mt-1 pl-[18px] text-[10px] text-slate-400"
+          onSave={(value: string) => onUpdate(application, { 投递时间: value })}
+        />
+      )}
+
+      {!overlay && (
+        <ApplicationProcessTimeline
+          value={fields['流程时间']}
+          currentStatus={status}
+          compact
+          disabled={saving}
+          onSave={(value) => onUpdate(application, { 流程时间: value })}
+        />
       )}
 
       {compact && !overlay && (
@@ -1028,7 +1037,7 @@ function ApplicationCard({
         <>
           <div className="mt-2.5 flex items-center gap-1 truncate text-[11px] text-slate-400">
             <MapPin className="size-3 shrink-0" />
-            {fields['工作地区'] || '地区未填写'}
+            {formatLocations(fields['工作地区']) || '地区未填写'}
           </div>
           <div className="mt-2 min-h-9 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] leading-[18px] text-slate-600">
             <span className="block text-[10px] font-bold text-slate-400">

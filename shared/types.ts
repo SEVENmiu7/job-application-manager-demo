@@ -5,12 +5,13 @@ export interface ApplicationRecord {
   fields: {
     公司名称: string;
     岗位名称: string;
-    工作地区: string;
+    工作地区: string[];
     所属行业: string;
     职能方向: string[];
     招聘渠道: string;
     收藏时间?: string;
     投递时间?: string;
+    流程时间: ApplicationProcessTimes;
     当前进度: string;
     下一步安排: string;
     个人备注: string;
@@ -23,6 +24,33 @@ export interface ApplicationRecord {
   created_at?: string;
   updated_at?: string;
 }
+
+export type ApplicationProcessStage =
+  | '测评'
+  | '笔试'
+  | 'AI面试'
+  | '一面'
+  | '二面'
+  | '三面'
+  | 'HR面'
+  | '谈Offer'
+  | '已Offer';
+
+export type ApplicationProcessTimes = Partial<
+  Record<ApplicationProcessStage, string>
+>;
+
+export const PROCESS_TIME_STAGES: ApplicationProcessStage[] = [
+  '测评',
+  '笔试',
+  'AI面试',
+  '一面',
+  '二面',
+  '三面',
+  'HR面',
+  '谈Offer',
+  '已Offer',
+];
 
 export interface ApplicationStats {
   total: number;
@@ -123,9 +151,19 @@ export const LOCATION_OPTIONS = [
   '深圳',
   '广州',
   '杭州',
+  '成都',
+  '南京',
+  '武汉',
+  '西安',
+  '厦门',
+  '东莞',
   '远程',
   '其他',
 ];
+
+export function formatLocations(locations?: string[]): string {
+  return locations?.filter(Boolean).join('、') || '';
+}
 export const INDUSTRY_OPTIONS = [
   '互联网',
   '金融',

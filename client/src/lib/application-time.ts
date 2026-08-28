@@ -1,8 +1,13 @@
 const APPLICATION_TIME_ZONE = 'Asia/Shanghai';
+const TIME_ZONE_SUFFIX_PATTERN = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
+
+function hasExplicitTimeZone(value: string): boolean {
+  return /[T ]\d{2}:\d{2}/.test(value) && TIME_ZONE_SUFFIX_PATTERN.test(value);
+}
 
 export function parseApplicationTime(value?: string | null): Date | null {
   if (!value) return null;
-  const normalizedValue: string = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(value)
+  const normalizedValue: string = hasExplicitTimeZone(value)
     ? value
     : `${value}Z`;
   const date = new Date(normalizedValue);
@@ -10,9 +15,16 @@ export function parseApplicationTime(value?: string | null): Date | null {
 }
 
 function hasRecordedClockTime(value: string): boolean {
-  const match: RegExpMatchArray | null = value.match(/T(\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) return false;
-  return match[2] !== '00' || (match[3] || '00') !== '00';
+  const date: Date | null = parseApplicationTime(value);
+  if (!date) return false;
+  const clockTime: string = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: APPLICATION_TIME_ZONE,
+  }).format(date);
+  return clockTime !== '00:00:00';
 }
 
 export function formatApplicationTime(value?: string | null): string {
@@ -74,7 +86,7 @@ export function toDatetimeLocalValue(value?: string | null): string {
 
 export function toUtcTimestamp(value?: string | null): string {
   if (!value) return '';
-  if (/(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(value)) {
+  if (hasExplicitTimeZone(value)) {
     return new Date(value).toISOString();
   }
   const localValue: string = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)

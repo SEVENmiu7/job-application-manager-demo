@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 
 import { api } from '@/api';
 import { InlineFieldEditor } from '@/components/application/InlineFieldEditor';
+import { InlineDateTimeEditor } from '@/components/application/InlineDateTimeEditor';
+import { ApplicationProcessTimeline } from '@/components/application/ApplicationProcessTimeline';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +77,7 @@ import { cn } from '@/lib/utils';
 import type { ApplicationRecord } from '../../../../shared/types';
 import {
   FUNCTION_OPTIONS,
+  formatLocations,
   INDUSTRY_OPTIONS,
   LOCATION_OPTIONS,
   STATUS_ORDER,
@@ -243,14 +246,20 @@ export default function ApplicationList() {
         }
         if (sortBy === 'location') {
           return (
-            compareText(left.fields['工作地区'], right.fields['工作地区']) ||
+            compareText(
+              formatLocations(left.fields['工作地区']),
+              formatLocations(right.fields['工作地区']),
+            ) ||
             compareText(left.fields['所属行业'], right.fields['所属行业']) ||
             compareCompany(left, right)
           );
         }
         return (
           compareText(left.fields['所属行业'], right.fields['所属行业']) ||
-          compareText(left.fields['工作地区'], right.fields['工作地区']) ||
+          compareText(
+            formatLocations(left.fields['工作地区']),
+            formatLocations(right.fields['工作地区']),
+          ) ||
           compareCompany(left, right)
         );
       },
@@ -868,7 +877,7 @@ function ApplicationTableRow({
       <TableCell className="py-5 text-center align-middle">
         <div className="flex items-center justify-center gap-1.5 text-sm font-medium text-slate-700">
           <MapPin className="size-4 text-slate-400" />
-          {fields['工作地区'] || '-'}
+          {formatLocations(fields['工作地区']) || '-'}
         </div>
         <div className="mt-1 text-sm text-slate-500">
           {fields['所属行业'] || '-'}
@@ -910,11 +919,23 @@ function ApplicationTableRow({
               <p className="text-[10px] font-bold tracking-wide text-slate-400">
                 投递时间
               </p>
-              <p className="mt-0.5 text-[13px] font-semibold leading-5 text-slate-700">
-                {formatDate(fields['投递时间'])}
-              </p>
+              <InlineDateTimeEditor
+                label="投递时间"
+                value={fields['投递时间']}
+                emptyText="未记录"
+                disabled={saving}
+                triggerClassName="mt-0.5 text-[13px] font-semibold leading-5 text-slate-700"
+                onSave={(value: string) => onUpdate({ 投递时间: value })}
+              />
             </div>
           </div>
+          <ApplicationProcessTimeline
+            value={fields['流程时间']}
+            currentStatus={status}
+            compact
+            disabled={saving}
+            onSave={(value) => onUpdate({ 流程时间: value })}
+          />
           <div className="flex items-start gap-2.5 border-t border-slate-100 pt-2.5">
             <ChevronRight className="mt-0.5 size-4 shrink-0 text-cyan-700" />
             <div className="min-w-0 flex-1">
@@ -1000,12 +1021,24 @@ function ApplicationMobileCard({
       <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
         <div className="flex items-center gap-2">
           <MapPin className="size-4" />
-          {fields['工作地区'] || '-'}
+          {formatLocations(fields['工作地区']) || '-'}
         </div>
-        <div className="flex items-center gap-2">
-          <CalendarDays className="size-4" />
-          {formatDate(fields['投递时间'])}
-        </div>
+        <InlineDateTimeEditor
+          label="投递时间"
+          value={fields['投递时间']}
+          emptyText="未记录"
+          disabled={saving}
+          triggerClassName="text-sm text-slate-600"
+          onSave={(value: string) => onUpdate({ 投递时间: value })}
+        />
+      </div>
+      <div className="mt-3">
+        <ApplicationProcessTimeline
+          value={fields['流程时间']}
+          currentStatus={status}
+          disabled={saving}
+          onSave={(value) => onUpdate({ 流程时间: value })}
+        />
       </div>
       <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/80 px-3 py-2.5 text-sm font-semibold text-cyan-900">
         <span className="mb-1 block text-[11px] font-bold text-cyan-700">
@@ -1181,12 +1214,22 @@ function ApplicationDetailDrawer({
             />
           </div>
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
-            <DrawerMeta label="工作地区" value={fields?.['工作地区']} />
-            <DrawerMeta label="投递渠道" value={fields?.['招聘渠道']} />
             <DrawerMeta
-              label="投递时间"
-              value={formatDate(fields?.['投递时间'])}
+              label="工作地区"
+              value={formatLocations(fields?.['工作地区'])}
             />
+            <DrawerMeta label="投递渠道" value={fields?.['招聘渠道']} />
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400">投递时间</p>
+              <InlineDateTimeEditor
+                label="投递时间"
+                value={fields?.['投递时间']}
+                emptyText="未记录"
+                disabled={saving}
+                triggerClassName="mt-1 max-w-full font-semibold text-slate-700"
+                onSave={(value: string) => onUpdate({ 投递时间: value })}
+              />
+            </div>
           </div>
         </SheetHeader>
 
@@ -1204,6 +1247,14 @@ function ApplicationDetailDrawer({
                 <br />
                 当前序号 {currentStatusIndex + 1}
               </span>
+            </div>
+            <div className="mt-4">
+              <ApplicationProcessTimeline
+                value={fields?.['流程时间']}
+                currentStatus={status}
+                disabled={saving}
+                onSave={(value) => onUpdate({ 流程时间: value })}
+              />
             </div>
             <div className="mt-4 grid grid-cols-5 gap-1">
               {stages.map((stage: string, index: number) => (

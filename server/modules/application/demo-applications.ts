@@ -1,7 +1,13 @@
+import {
+  PROCESS_TIME_STAGES,
+  type ApplicationProcessStage,
+  type ApplicationProcessTimes,
+} from '@shared/types';
+
 export interface DemoApplicationSeed {
   company: string;
   position: string;
-  location: string;
+  location: string[];
   industry: string;
   functions: string[];
   channel: string;
@@ -14,6 +20,7 @@ export interface DemoApplicationSeed {
   boardOrder: number;
   jobResponsibilities: string;
   jobRequirements: string;
+  processTimes: ApplicationProcessTimes;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,7 +28,7 @@ export interface DemoApplicationSeed {
 interface DemoSeedInput {
   company: string;
   position: string;
-  location: string;
+  location: string[];
   industry: string;
   functions: string[];
   channel: string;
@@ -38,6 +45,23 @@ const createDemoSeed = (
   const hasApplied: boolean = !['收藏', '准备中'].includes(input.status);
   const timestamp: string = `2026-08-${day}T0${index % 9}:20:00.000Z`;
   const pinnedIndexes: number[] = [0, 2, 6, 10];
+  const processTimes: ApplicationProcessTimes = {};
+  const processStageIndex: number = PROCESS_TIME_STAGES.indexOf(
+    input.status as ApplicationProcessStage,
+  );
+  if (processStageIndex >= 0) {
+    for (
+      let stageIndex: number = 0;
+      stageIndex <= processStageIndex;
+      stageIndex += 1
+    ) {
+      const stage: ApplicationProcessStage = PROCESS_TIME_STAGES[stageIndex];
+      const processDay: string = String(
+        Math.max(1, index + 4 - processStageIndex + stageIndex),
+      ).padStart(2, '0');
+      processTimes[stage] = `2026-08-${processDay}T09:30:00.000Z`;
+    }
+  }
 
   return {
     ...input,
@@ -48,6 +72,7 @@ const createDemoSeed = (
     boardOrder: pinnedIndexes.includes(index) ? -1000 : (index + 1) * 1000,
     jobResponsibilities: `围绕${input.position}岗位开展需求分析、方案设计、跨团队协作与项目复盘。`,
     jobRequirements: `具备${input.functions.join('、')}相关项目经验，有良好的结构化思考、沟通和数据分析能力。`,
+    processTimes,
     createdAt: timestamp,
     updatedAt: `2026-08-25T${String(index + 1).padStart(2, '0')}:10:00.000Z`,
   };
@@ -57,7 +82,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '北辰云科',
     position: '产品经理培养生',
-    location: '北京',
+    location: ['北京'],
     industry: '互联网',
     functions: ['产品'],
     channel: '校招官网',
@@ -68,7 +93,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '澄海数据',
     position: '商业分析师',
-    location: '上海',
+    location: ['上海'],
     industry: '金融',
     functions: ['产品', '职能'],
     channel: '内推',
@@ -79,7 +104,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '拾光互娱',
     position: '用户运营培养生',
-    location: '广州',
+    location: ['广州'],
     industry: '互联网',
     functions: ['运营'],
     channel: 'Boss',
@@ -90,7 +115,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '凌波智能',
     position: 'AI 产品助理',
-    location: '深圳',
+    location: ['深圳'],
     industry: '互联网',
     functions: ['产品'],
     channel: '牛客',
@@ -101,7 +126,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '青屿咨询',
     position: '行业研究顾问',
-    location: '上海',
+    location: ['上海'],
     industry: '咨询',
     functions: ['职能'],
     channel: '猎聘',
@@ -112,7 +137,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '星轨电商',
     position: '电商策略运营',
-    location: '杭州',
+    location: ['杭州', '远程'],
     industry: '电商',
     functions: ['运营'],
     channel: '校招官网',
@@ -123,7 +148,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '云岚科技',
     position: 'B 端产品经理',
-    location: '北京',
+    location: ['北京'],
     industry: '互联网',
     functions: ['产品'],
     channel: '内推',
@@ -134,7 +159,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '矩阵金融',
     position: '数字化产品培养生',
-    location: '深圳',
+    location: ['深圳', '上海'],
     industry: '金融',
     functions: ['产品'],
     channel: '官网',
@@ -145,7 +170,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '沐光教育',
     position: '学习产品运营',
-    location: '远程',
+    location: ['远程'],
     industry: '教育',
     functions: ['产品', '运营'],
     channel: '脉脉',
@@ -156,7 +181,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '远帆出行',
     position: '市场策略培养生',
-    location: '上海',
+    location: ['上海', '广州'],
     industry: '互联网',
     functions: ['市场'],
     channel: '校招官网',
@@ -167,7 +192,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '山海内容',
     position: '内容产品经理',
-    location: '北京',
+    location: ['北京'],
     industry: '互联网',
     functions: ['产品', '运营'],
     channel: '内推',
@@ -178,7 +203,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '新叶零售',
     position: '零售数字化产品',
-    location: '杭州',
+    location: ['杭州'],
     industry: '电商',
     functions: ['产品'],
     channel: '官网',
@@ -189,7 +214,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '晨星消费',
     position: '品牌策划培养生',
-    location: '广州',
+    location: ['广州'],
     industry: '电商',
     functions: ['市场'],
     channel: '牛客',
@@ -200,7 +225,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '原野科技',
     position: '增长产品经理',
-    location: '深圳',
+    location: ['深圳'],
     industry: '互联网',
     functions: ['产品', '运营'],
     channel: '内推',
@@ -211,7 +236,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '蓝桥数智',
     position: '解决方案产品经理',
-    location: '北京',
+    location: ['北京', '远程'],
     industry: '互联网',
     functions: ['产品'],
     channel: '猎聘',
@@ -222,7 +247,7 @@ const DEMO_SEED_INPUTS: DemoSeedInput[] = [
   {
     company: '枫谷生活',
     position: '会员运营专员',
-    location: '杭州',
+    location: ['杭州'],
     industry: '电商',
     functions: ['运营'],
     channel: 'Boss',

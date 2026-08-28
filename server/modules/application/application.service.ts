@@ -4,8 +4,17 @@ import { and, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 
 import { applications } from '@server/database/schema';
-import { hasEnteredApplicationStage } from '@shared/types';
+import {
+  hasEnteredApplicationStage,
+  PROCESS_TIME_STAGES,
+  type ApplicationProcessStage,
+  type ApplicationProcessTimes,
+} from '@shared/types';
 
+import {
+  parseChinaTimestamp,
+  serializeStoredTimestamp,
+} from './application-time';
 import {
   DEMO_APPLICATION_SEEDS,
   type DemoApplicationSeed,
@@ -54,7 +63,7 @@ export class ApplicationService {
       conditions.push(ilike(applications.functions, `%${functionDirection}%`));
     }
     if (filters?.location) {
-      conditions.push(eq(applications.location, filters.location));
+      conditions.push(ilike(applications.location, `%${filters.location}%`));
     }
 
     const rows: (typeof applications.$inferSelect)[] = await this.db
@@ -68,12 +77,13 @@ export class ApplicationService {
       fields: {
         公司名称: row.company,
         岗位名称: row.position,
-        工作地区: row.location || '',
+        工作地区: this.parseLocations(row.location),
         所属行业: row.industry || '',
         职能方向: this.parseFunctions(row.functions),
         招聘渠道: row.channel || '',
-        收藏时间: row.favoriteTime || undefined,
-        投递时间: row.applyTime || undefined,
+        收藏时间: serializeStoredTimestamp(row.favoriteTime),
+        投递时间: serializeStoredTimestamp(row.applyTime),
+        流程时间: this.parseProcessTimes(row.processTimes),
         当前进度: row.status,
         下一步安排: row.nextStep || '',
         个人备注: row.notes || '',
@@ -99,12 +109,13 @@ export class ApplicationService {
       fields: {
         公司名称: row.company,
         岗位名称: row.position,
-        工作地区: row.location || '',
+        工作地区: this.parseLocations(row.location),
         所属行业: row.industry || '',
         职能方向: this.parseFunctions(row.functions),
         招聘渠道: row.channel || '',
-        收藏时间: row.favoriteTime || undefined,
-        投递时间: row.applyTime || undefined,
+        收藏时间: serializeStoredTimestamp(row.favoriteTime),
+        投递时间: serializeStoredTimestamp(row.applyTime),
+        流程时间: this.parseProcessTimes(row.processTimes),
         当前进度: row.status,
         下一步安排: row.nextStep || '',
         个人备注: row.notes || '',
@@ -129,14 +140,14 @@ export class ApplicationService {
         userId,
         company: this.getString(fields, '公司名称'),
         position: this.getString(fields, '岗位名称'),
-        location: this.getNullableString(fields, '工作地区'),
+        location: this.getStringArrayJson(fields, '工作地区'),
         industry: this.getNullableString(fields, '所属行业'),
         functions: this.getStringArrayJson(fields, '职能方向'),
         channel: this.getNullableString(fields, '招聘渠道'),
         favoriteTime: this.getNullableTimestamp(fields, '收藏时间'),
         applyTime:
-          applyTime ||
-          (hasEnteredApplicationStage(status) ? now : null),
+          applyTime || (hasEnteredApplicationStage(status) ? now : null),
+        processTimes: this.getProcessTimesJson(fields, status, now),
         status,
         nextStep: this.getNullableString(fields, '下一步安排'),
         notes: this.getNullableString(fields, '个人备注'),
@@ -159,7 +170,7 @@ export class ApplicationService {
     if ('岗位名称' in fields)
       updates.position = this.getString(fields, '岗位名称');
     if ('工作地区' in fields)
-      updates.location = this.getNullableString(fields, '工作地区');
+      updates.location = this.getStringArrayJson(fields, '工作地区');
     if ('所属行业' in fields)
       updates.industry = this.getNullableString(fields, '所属行业');
     if ('职能方向' in fields)
@@ -170,6 +181,8 @@ export class ApplicationService {
       updates.favoriteTime = this.getNullableTimestamp(fields, '收藏时间');
     if ('投递时间' in fields)
       updates.applyTime = this.getNullableTimestamp(fields, '投递时间');
+    if ('流程时间' in fields)
+      updates.processTimes = this.getProcessTimesJson(fields);
     if ('当前进度' in fields)
       updates.status = this.getNullableString(fields, '当前进度');
     if (
@@ -183,6 +196,29 @@ export class ApplicationService {
         .where(and(eq(applications.id, id), eq(applications.userId, userId)));
       if (current && !current.applyTime) {
         updates.applyTime = new Date().toISOString();
+      }
+    }
+    if (
+      '当前进度' in fields &&
+      !('流程时间' in fields) &&
+      PROCESS_TIME_STAGES.includes(
+        this.getNullableString(fields, '当前进度') as ApplicationProcessStage,
+      )
+    ) {
+      const nextStatus = this.getNullableString(
+        fields,
+        '当前进度',
+      ) as ApplicationProcessStage;
+      const [current]: { processTimes: string | null }[] = await this.db
+        .select({ processTimes: applications.processTimes })
+        .from(applications)
+        .where(and(eq(applications.id, id), eq(applications.userId, userId)));
+      const processTimes: ApplicationProcessTimes = this.parseProcessTimes(
+        current?.processTimes || null,
+      );
+      if (!processTimes[nextStatus]) {
+        processTimes[nextStatus] = new Date().toISOString();
+        updates.processTimes = JSON.stringify(processTimes);
       }
     }
     if ('下一步安排' in fields)
@@ -282,12 +318,16 @@ export class ApplicationService {
         userId,
         company: seed.company,
         position: seed.position,
-        location: seed.location,
+        location: JSON.stringify(seed.location),
         industry: seed.industry,
         functions: JSON.stringify(seed.functions),
         channel: seed.channel,
         favoriteTime: seed.favoriteTime,
         applyTime: seed.applyTime,
+        processTimes:
+          Object.keys(seed.processTimes).length > 0
+            ? JSON.stringify(seed.processTimes)
+            : null,
         status: seed.status,
         nextStep: seed.nextStep,
         notes: seed.notes,
@@ -316,6 +356,44 @@ export class ApplicationService {
     }
   }
 
+  private parseLocations(value: string | null): string[] {
+    if (!value) return [];
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (item: unknown): item is string => typeof item === 'string',
+        );
+      }
+    } catch {
+      // 兼容升级前保存的单值与分隔字符串。
+    }
+    return value
+      .split(/[,，、/]/)
+      .map((item: string) => item.trim())
+      .filter(Boolean);
+  }
+
+  private parseProcessTimes(value: string | null): ApplicationProcessTimes {
+    if (!value) return {};
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return {};
+      }
+      return Object.fromEntries(
+        Object.entries(parsed).filter(
+          ([stage, time]: [string, unknown]) =>
+            PROCESS_TIME_STAGES.includes(stage as ApplicationProcessStage) &&
+            typeof time === 'string' &&
+            Boolean(time),
+        ),
+      ) as ApplicationProcessTimes;
+    } catch {
+      return {};
+    }
+  }
+
   private getString(fields: Record<string, unknown>, key: string): string {
     const value: unknown = fields[key];
     return typeof value === 'string' ? value : '';
@@ -334,7 +412,7 @@ export class ApplicationService {
     key: string,
   ): string | null {
     const value: string = this.getString(fields, key);
-    return value ? new Date(value).toISOString() : null;
+    return value ? parseChinaTimestamp(value) : null;
   }
 
   private getNullableNumber(
@@ -355,5 +433,40 @@ export class ApplicationService {
       (item: unknown): item is string => typeof item === 'string',
     );
     return strings.length > 0 ? JSON.stringify(strings) : null;
+  }
+
+  private getProcessTimes(
+    fields: Record<string, unknown>,
+  ): ApplicationProcessTimes {
+    const value: unknown = fields['流程时间'];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const processTimes: ApplicationProcessTimes = {};
+    for (const stage of PROCESS_TIME_STAGES) {
+      const time: unknown = (value as Record<string, unknown>)[stage];
+      if (typeof time === 'string' && time) {
+        const normalizedTime: string | null = parseChinaTimestamp(time);
+        if (normalizedTime) processTimes[stage] = normalizedTime;
+      }
+    }
+    return processTimes;
+  }
+
+  private getProcessTimesJson(
+    fields: Record<string, unknown>,
+    status?: string,
+    fallbackTime?: string,
+  ): string | null {
+    const processTimes: ApplicationProcessTimes = this.getProcessTimes(fields);
+    if (
+      status &&
+      fallbackTime &&
+      PROCESS_TIME_STAGES.includes(status as ApplicationProcessStage) &&
+      !processTimes[status as ApplicationProcessStage]
+    ) {
+      processTimes[status as ApplicationProcessStage] = fallbackTime;
+    }
+    return Object.keys(processTimes).length > 0
+      ? JSON.stringify(processTimes)
+      : null;
   }
 }
