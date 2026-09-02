@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Send, Loader2 } from 'lucide-react';
 import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
+import { CompactStepper } from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { LocationMultiSelect } from '@/components/application/LocationMultiSelect';
 import { toDatetimeLocalValue, toUtcTimestamp } from '@/lib/application-time';
 import {
   STATUS_ORDER,
-  LOCATION_OPTIONS,
   INDUSTRY_OPTIONS,
   FUNCTION_OPTIONS,
   CHANNEL_OPTIONS,
@@ -63,6 +68,7 @@ export default function EditApplication() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showFullProcess, setShowFullProcess] = useState(false);
 
   const {
     value: form,
@@ -171,7 +177,7 @@ export default function EditApplication() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-[1080px] space-y-5">
       <div className="ui-page-header flex items-start gap-3 px-4 py-4 sm:items-center sm:gap-4 sm:px-5 sm:py-5">
         <Button
           type="button"
@@ -184,10 +190,10 @@ export default function EditApplication() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-teal-700">
+          <p className="text-xs font-semibold tracking-[0.14em] text-teal-700">
             投递档案
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-[28px]">
+          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
             编辑投递
           </h1>
           <p className="mt-1 text-sm text-slate-500">更新投递信息与进度</p>
@@ -200,8 +206,16 @@ export default function EditApplication() {
         </div>
       )}
 
+      <CompactStepper
+        steps={[
+          { label: '基本信息' },
+          { label: '进度与时间' },
+          { label: '补充信息' },
+        ]}
+      />
+
       <form onSubmit={handleSubmit} className="space-y-5">
-        <FormSection title="基本信息">
+        <FormSection step={1} title="基本信息">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="公司名称 *">
               <input
@@ -227,7 +241,6 @@ export default function EditApplication() {
               <LocationMultiSelect
                 value={form.工作地区}
                 onChange={(v: string[]) => update('工作地区', v)}
-                options={LOCATION_OPTIONS}
               />
             </FormField>
             <FormField label="所属行业">
@@ -265,7 +278,7 @@ export default function EditApplication() {
           </FormField>
         </FormSection>
 
-        <FormSection title="进度管理">
+        <FormSection step={2} title="进度与时间">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <FormField label="当前进度">
               <Select
@@ -303,11 +316,17 @@ export default function EditApplication() {
               className="form-input"
             />
           </FormField>
-          <FormField label="测评与面试时间">
-            <p className="mb-3 text-xs leading-5 text-slate-500">
-              手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Collapsible open={showFullProcess} onOpenChange={setShowFullProcess}>
+            <CollapsibleTrigger className="group flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30">
+              展开完整招聘流程（测评、笔试、各轮面试与 Offer 时间）
+              <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <FormField label="各节点时间">
+                <p className="mb-3 text-xs leading-5 text-slate-500">
+                  手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
                 <label
                   key={stage}
@@ -328,10 +347,12 @@ export default function EditApplication() {
                 </label>
               ))}
             </div>
-          </FormField>
+              </FormField>
+            </CollapsibleContent>
+          </Collapsible>
         </FormSection>
 
-        <FormSection title="简历">
+        <FormSection step={3} title="补充信息 · 材料与备注">
           <FormField label="简历标识">
             <input
               type="text"
@@ -341,9 +362,6 @@ export default function EditApplication() {
               className="form-input"
             />
           </FormField>
-        </FormSection>
-
-        <FormSection title="补充信息">
           <FormField label="个人备注">
             <textarea
               value={form.个人备注}
@@ -375,19 +393,21 @@ export default function EditApplication() {
           </div>
         </FormSection>
 
-        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
-          <Button type="submit" disabled={saving} size="lg">
-            <Send className="w-4 h-4" />
-            {saving ? '保存中...' : '保存修改'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => navigate('/applications')}
-          >
-            取消
-          </Button>
+        <div className="sticky bottom-4 z-20 rounded-xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-[0_14px_36px_-24px_rgba(15,23,42,0.45)] backdrop-blur-md">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button type="submit" disabled={saving} size="lg">
+              <Send className="w-4 h-4" />
+              {saving ? '保存中...' : '保存修改'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => navigate('/applications')}
+            >
+              取消
+            </Button>
+          </div>
         </div>
       </form>
     </div>
@@ -395,15 +415,20 @@ export default function EditApplication() {
 }
 
 function FormSection({
+  step,
   title,
   children,
 }: {
+  step: number;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="ui-surface p-4 sm:p-5">
-      <h2 className="mb-4 border-b border-slate-100 pb-3 text-[15px] font-bold text-slate-800">
+      <h2 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-semibold text-slate-800">
+        <span className="flex size-6 items-center justify-center rounded-full bg-teal-50 text-xs font-bold text-teal-700">
+          {step}
+        </span>
         {title}
       </h2>
       <div className="space-y-4">{children}</div>

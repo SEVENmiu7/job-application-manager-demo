@@ -161,6 +161,69 @@ export const LOCATION_OPTIONS = [
   '其他',
 ];
 
+// 地区选择器数据：参考主流招聘平台（Boss直聘/猎聘）的城市选择结构，
+// 热门城市 + 按大区分组，覆盖更完整的求职城市；仅用于 UI 选择器。
+export interface LocationGroup {
+  region: string;
+  cities: string[];
+}
+
+export const LOCATION_GROUPS: LocationGroup[] = [
+  {
+    region: '热门城市',
+    cities: ['北京', '上海', '深圳', '广州', '杭州', '成都', '南京', '武汉', '西安'],
+  },
+  {
+    region: '华北',
+    cities: ['北京', '天津', '石家庄', '太原', '呼和浩特'],
+  },
+  {
+    region: '华东',
+    cities: [
+      '上海',
+      '杭州',
+      '南京',
+      '苏州',
+      '合肥',
+      '宁波',
+      '无锡',
+      '济南',
+      '青岛',
+      '福州',
+      '厦门',
+      '南昌',
+    ],
+  },
+  {
+    region: '华南',
+    cities: ['深圳', '广州', '东莞', '佛山', '珠海', '南宁', '海口'],
+  },
+  {
+    region: '华中',
+    cities: ['武汉', '长沙', '郑州'],
+  },
+  {
+    region: '西南',
+    cities: ['成都', '重庆', '昆明', '贵阳'],
+  },
+  {
+    region: '西北',
+    cities: ['西安', '兰州', '乌鲁木齐'],
+  },
+  {
+    region: '东北',
+    cities: ['沈阳', '大连', '哈尔滨', '长春'],
+  },
+  {
+    region: '特殊',
+    cities: ['远程', '海外', '其他'],
+  },
+];
+
+export const ALL_LOCATION_CITIES: string[] = Array.from(
+  new Set(LOCATION_GROUPS.flatMap((group: LocationGroup) => group.cities)),
+);
+
 export function formatLocations(locations?: string[]): string {
   return locations?.filter(Boolean).join('、') || '';
 }

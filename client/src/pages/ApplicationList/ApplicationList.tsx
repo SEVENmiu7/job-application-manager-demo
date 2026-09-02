@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import {
   BookOpenText,
   ArrowUpDown,
-  BriefcaseBusiness,
-  CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   Edit2,
   FileText,
   Filter,
+  FolderOpen,
   LayoutGrid,
   MapPin,
   PlusCircle,
@@ -24,6 +24,7 @@ import { api } from '@/api';
 import { InlineFieldEditor } from '@/components/application/InlineFieldEditor';
 import { InlineDateTimeEditor } from '@/components/application/InlineDateTimeEditor';
 import { ApplicationProcessTimeline } from '@/components/application/ApplicationProcessTimeline';
+import { PageHeader, SegmentedControl, StatTintCard } from '@/components/page-ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +62,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useApplications, useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
@@ -74,8 +74,13 @@ import {
   parseApplicationTime,
 } from '@/lib/application-time';
 import { cn } from '@/lib/utils';
-import type { ApplicationRecord } from '../../../../shared/types';
+import type {
+  ApplicationRecord,
+  ApplicationProcessTimes,
+  ApplicationProcessStage,
+} from '../../../../shared/types';
 import {
+  PROCESS_TIME_STAGES,
   FUNCTION_OPTIONS,
   formatLocations,
   INDUSTRY_OPTIONS,
@@ -100,7 +105,6 @@ const QUICK_STATUSES: string[] = [
   '已Offer',
 ];
 
-type DetailKind = 'note' | 'responsibilities' | 'requirements';
 type SortOption =
   | 'updated'
   | 'applied'
@@ -111,6 +115,8 @@ type SortOption =
   | 'location'
   | 'industry';
 type SortDirection = 'asc' | 'desc';
+
+const PAGE_SIZE = 15;
 
 const DEFAULT_SORT_DIRECTIONS: Record<SortOption, SortDirection> = {
   updated: 'desc',
@@ -125,7 +131,6 @@ const DEFAULT_SORT_DIRECTIONS: Record<SortOption, SortDirection> = {
 
 interface DetailDrawerState {
   item: ApplicationRecord;
-  kind: DetailKind;
 }
 
 export default function ApplicationList() {
@@ -148,6 +153,7 @@ export default function ApplicationList() {
     null,
   );
   const [savingQuickEdit, setSavingQuickEdit] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
   const deferredKeyword: string = useDeferredValue(filters.keyword || '');
   const requestFilters: Record<string, string> | undefined = useMemo(() => {
     const nextFilters: Record<string, string> = {
@@ -284,6 +290,17 @@ export default function ApplicationList() {
   ).length;
   const currentStatus: string = filters.status || '';
 
+  useEffect(() => {
+    setPage(1);
+  }, [filters, sortBy, sortDirection]);
+  const totalFiltered: number = sortedData.length;
+  const totalPages: number = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const safePage: number = Math.min(page, totalPages);
+  const pagedData: ApplicationRecord[] = sortedData.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
   const updateFilter = (key: string, value: string) => {
     setFilters((current: Record<string, string>) => ({
       ...current,
@@ -351,52 +368,35 @@ export default function ApplicationList() {
 
   return (
     <div className="space-y-5">
-      <header className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(122deg,#092235_0%,#0b3a4b_60%,#086267_100%)] px-5 py-6 text-white shadow-[0_20px_50px_-34px_rgba(8,47,73,0.75)] md:px-7">
-        <div className="absolute -right-16 -top-24 size-80 rounded-full bg-cyan-300/20 blur-3xl" />
-        <div className="absolute -bottom-32 left-1/4 size-72 rounded-full bg-teal-500/20 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold tracking-[0.16em] text-cyan-200">
-              <BriefcaseBusiness className="size-4" />
-              Application archive
-            </div>
-            <h1 className="text-3xl font-black tracking-[-0.035em] text-white md:text-[34px]">
-              投递列表
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-300">
-              共 <span className="font-black text-white">{data.length}</span>{' '}
-              条投递记录
-              {activeFilterCount > 0 && '，当前结果已筛选'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-white/25 bg-white/10 font-bold text-white shadow-none backdrop-blur-sm hover:border-white/45 hover:bg-white/15 hover:text-white"
-            >
+      <PageHeader
+        eyebrow="Application archive"
+        title="投递列表"
+        description={
+          <>
+            共 <span className="font-bold text-slate-800">{data.length}</span>{' '}
+            条投递记录
+            {activeFilterCount > 0 && '，当前结果已筛选'}
+          </>
+        }
+        actions={
+          <>
+            <Button asChild variant="outline">
               <Link to="/">
                 <LayoutGrid />
                 投递看板
               </Link>
             </Button>
-            <Button
-              asChild
-              size="lg"
-              className="border border-white/40 bg-white font-bold text-slate-950 shadow-lg shadow-cyan-950/20 hover:bg-cyan-50"
-            >
+            <Button asChild>
               <Link to="/applications/new">
                 <PlusCircle />
                 添加投递
               </Link>
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <section className="application-filter-bar ui-surface sticky top-16 z-30 p-3 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl md:top-0 md:p-5">
+      <section className="application-filter-bar sticky top-4 z-30 rounded-xl border border-slate-200/70 p-3 shadow-[0_14px_36px_-28px_rgba(15,23,42,0.4)] md:p-4">
         <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400 md:left-3.5 md:size-5" />
@@ -601,42 +601,40 @@ export default function ApplicationList() {
 
       {!loading && !error && data.length > 0 && (
         <>
-          <div className="hidden overflow-hidden rounded-[24px] border border-white/80 bg-white/70 shadow-[0_20px_55px_-38px_rgba(15,23,42,0.6)] backdrop-blur-xl lg:block">
-            <Table className="min-w-[1340px] table-fixed">
-              <TableHeader className="bg-slate-900 text-white">
-                <TableRow className="border-slate-800 hover:bg-slate-900">
-                  <TableHead className="h-12 w-[230px] px-5 text-sm font-bold text-slate-200">
+          <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white/70 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.4)] backdrop-blur-sm">
+            <Table className="min-w-[1240px] table-fixed">
+              <TableHeader className="bg-white/70 backdrop-blur-sm">
+                <TableRow className="border-b border-slate-200/80 hover:bg-white/70">
+                  <TableHead className="h-10 w-[210px] px-4 text-[13px] font-semibold text-slate-500">
                     公司与岗位
                   </TableHead>
-                  <TableHead className="w-[150px] text-center text-sm font-bold text-slate-200">
-                    地区与行业
+                  <TableHead className="w-[120px] text-center text-[13px] font-semibold text-slate-500">
+                    地区
                   </TableHead>
-                  <TableHead className="w-[170px] text-center text-sm font-bold text-slate-200">
-                    职能与渠道
+                  <TableHead className="w-[110px] text-center text-[13px] font-semibold text-slate-500">
+                    职能 · 渠道
                   </TableHead>
-                  <TableHead className="w-[130px] text-center text-sm font-bold text-slate-200">
+                  <TableHead className="w-[124px] text-center text-[13px] font-semibold text-slate-500">
                     当前进度
                   </TableHead>
-                  <TableHead className="w-[190px] text-center text-sm font-bold text-slate-200">
-                    时间与下一步
+                  <TableHead className="w-[180px] text-center text-[13px] font-semibold text-slate-500">
+                    下一步 · 时间
                   </TableHead>
-                  <TableHead className="w-[250px] text-center text-sm font-bold text-slate-200">
-                    资料抽屉
+                  <TableHead className="w-[86px] text-center text-[13px] font-semibold text-slate-500">
+                    资料
                   </TableHead>
-                  <TableHead className="w-[150px] pr-5 text-center text-sm font-bold text-slate-200">
+                  <TableHead className="w-[130px] pr-4 text-center text-[13px] font-semibold text-slate-500">
                     操作
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedData.map((item: ApplicationRecord, index: number) => (
+                {pagedData.map((item: ApplicationRecord, index: number) => (
                   <ApplicationTableRow
                     key={item.record_id || index}
                     item={item}
                     onDelete={() => setDeleteTarget(item)}
-                    onOpenDetail={(kind: DetailKind) =>
-                      setDetailDrawer({ item, kind })
-                    }
+                    onOpenDetail={() => setDetailDrawer({ item })}
                     saving={savingQuickEdit === item.record_id}
                     onUpdate={(fields) => handleQuickUpdate(item, fields)}
                   />
@@ -645,20 +643,26 @@ export default function ApplicationList() {
             </Table>
           </div>
 
+
           <div className="grid grid-cols-1 gap-4 lg:hidden">
-            {sortedData.map((item: ApplicationRecord, index: number) => (
+            {pagedData.map((item: ApplicationRecord, index: number) => (
               <ApplicationMobileCard
                 key={item.record_id || index}
                 item={item}
                 onDelete={() => setDeleteTarget(item)}
-                onOpenDetail={(kind: DetailKind) =>
-                  setDetailDrawer({ item, kind })
-                }
+                onOpenDetail={() => setDetailDrawer({ item })}
                 saving={savingQuickEdit === item.record_id}
                 onUpdate={(fields) => handleQuickUpdate(item, fields)}
               />
             ))}
           </div>
+          <ListPagination
+            page={safePage}
+            totalPages={totalPages}
+            total={totalFiltered}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </>
       )}
 
@@ -857,109 +861,108 @@ function ApplicationTableRow({
 }: {
   item: ApplicationRecord;
   onDelete: () => void;
-  onOpenDetail: (kind: DetailKind) => void;
+  onOpenDetail: () => void;
   saving: boolean;
   onUpdate: (fields: Partial<ApplicationRecord['fields']>) => Promise<boolean>;
 }) {
   const fields: ApplicationRecord['fields'] = item.fields;
   const status: string = fields['当前进度'] || '收藏';
+  const theme: ApplicationStatusTheme = getApplicationStatusTheme(status);
+  const hasMaterials: boolean = Boolean(
+    fields['个人备注']?.trim() ||
+      fields['岗位职责']?.trim() ||
+      fields['任职要求']?.trim(),
+  );
 
   return (
-    <TableRow className="group border-slate-100 even:bg-slate-50/45 hover:bg-cyan-50/55">
-      <TableCell className="max-w-[280px] px-5 py-5">
-        <div className="truncate text-base font-bold text-slate-950">
-          {fields['公司名称'] || '-'}
+    <TableRow className="group border-slate-100/80 hover:bg-teal-50/40">
+      <TableCell className="max-w-[220px] px-4 py-3 align-middle">
+        <div className="flex items-center gap-1.5">
+          <span className={cn('size-1.5 shrink-0 rounded-full', theme.dot)} />
+          <span className="truncate text-sm font-bold text-slate-900">
+            {fields['公司名称'] || '-'}
+          </span>
         </div>
-        <div className="mt-1 truncate text-sm font-medium text-slate-600">
+        <div className="mt-0.5 truncate pl-3 text-xs font-medium text-slate-500">
           {fields['岗位名称'] || '-'}
         </div>
       </TableCell>
-      <TableCell className="py-5 text-center align-middle">
-        <div className="flex items-center justify-center gap-1.5 text-sm font-medium text-slate-700">
-          <MapPin className="size-4 text-slate-400" />
+      <TableCell className="py-3 text-center align-middle">
+        <div className="truncate text-[13px] font-medium text-slate-700">
           {formatLocations(fields['工作地区']) || '-'}
         </div>
-        <div className="mt-1 text-sm text-slate-500">
+        <div className="mt-0.5 truncate text-xs text-slate-400">
           {fields['所属行业'] || '-'}
         </div>
       </TableCell>
-      <TableCell className="py-5 text-center align-middle">
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {(fields['职能方向'] || []).map((direction: string) => (
+      <TableCell className="py-3 text-center align-middle">
+        <div className="flex flex-wrap justify-center gap-1">
+          {(fields['职能方向'] || []).slice(0, 2).map((direction: string) => (
             <span
               key={direction}
-              className="rounded-md bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700"
+              className="rounded-md bg-purple-50 px-1.5 py-0.5 text-[11px] font-semibold text-purple-600"
             >
               {direction}
             </span>
           ))}
         </div>
-        <div className="mt-2 text-sm text-slate-500">
+        <div className="mt-0.5 truncate text-xs text-slate-400">
           {fields['招聘渠道'] || '-'}
         </div>
       </TableCell>
-      <TableCell className="py-5 text-center align-middle">
+      <TableCell className="py-3 text-center align-middle">
         <ApplicationStatusSelect
           value={status}
           disabled={saving}
           onChange={(value: string) => void onUpdate({ 当前进度: value })}
         />
-        <ResumeVersionEditor
-          value={fields['简历标识']}
-          disabled={saving}
-          className="mx-auto mt-2 w-28 justify-center"
-          onSave={(value: string) => onUpdate({ 简历标识: value })}
-        />
       </TableCell>
-      <TableCell className="py-4 align-middle">
-        <div className="mx-auto w-[164px] space-y-2.5 text-left">
-          <div className="flex items-start gap-2.5">
-            <CalendarDays className="mt-0.5 size-4 shrink-0 text-slate-400" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold tracking-wide text-slate-400">
-                投递时间
-              </p>
-              <InlineDateTimeEditor
-                label="投递时间"
-                value={fields['投递时间']}
-                emptyText="未记录"
-                disabled={saving}
-                triggerClassName="mt-0.5 text-[13px] font-semibold leading-5 text-slate-700"
-                onSave={(value: string) => onUpdate({ 投递时间: value })}
-              />
-            </div>
-          </div>
-          <ApplicationProcessTimeline
-            value={fields['流程时间']}
-            currentStatus={status}
-            compact
+      <TableCell className="py-3 text-center align-middle">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold text-slate-400">下一步</p>
+          <InlineFieldEditor
+            label="下一步安排"
+            value={fields['下一步安排']}
+            emptyText="暂未安排"
             disabled={saving}
-            onSave={(value) => onUpdate({ 流程时间: value })}
+            triggerClassName="w-full text-center text-[13px] font-semibold leading-5 text-teal-800"
+            onSave={(value: string) => onUpdate({ 下一步安排: value })}
           />
-          <div className="flex items-start gap-2.5 border-t border-slate-100 pt-2.5">
-            <ChevronRight className="mt-0.5 size-4 shrink-0 text-cyan-700" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold tracking-wide text-slate-400">
-                下一步
-              </p>
-              <InlineFieldEditor
-                label="下一步安排"
-                value={fields['下一步安排']}
-                emptyText="暂未安排"
-                disabled={saving}
-                triggerClassName="mt-0.5 w-full text-[13px] font-semibold leading-5 text-cyan-800"
-                onSave={(value: string) => onUpdate({ 下一步安排: value })}
-              />
-            </div>
-          </div>
+        </div>
+        <div className="mt-1 flex items-center justify-center gap-1 text-[11px] text-slate-400">
+          <span>投递</span>
+          <InlineDateTimeEditor
+            label="投递时间"
+            value={fields['投递时间']}
+            emptyText="未记录"
+            disabled={saving}
+            triggerClassName="text-[11px] font-medium text-slate-500"
+            onSave={(value: string) => onUpdate({ 投递时间: value })}
+          />
         </div>
       </TableCell>
-      <TableCell className="py-4 text-center align-middle">
-        <DetailDrawerButtons fields={fields} onOpen={onOpenDetail} />
+      <TableCell className="py-3 text-center align-middle">
+        <button
+          type="button"
+          onClick={onOpenDetail}
+          className={cn(
+            'inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40',
+            hasMaterials
+              ? 'border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300'
+              : 'border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:text-slate-700',
+          )}
+          aria-label="打开资料抽屉"
+        >
+          <FolderOpen className="size-3.5" />
+          资料
+          {hasMaterials && (
+            <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+          )}
+        </button>
       </TableCell>
-      <TableCell className="py-5 pr-5 text-center align-middle">
-        <div className="flex items-center justify-center gap-2">
-          <Button asChild variant="outline" size="sm">
+      <TableCell className="py-3 pr-4 text-center align-middle">
+        <div className="flex items-center justify-center gap-1.5">
+          <Button asChild variant="ghost" size="sm" className="px-2">
             <Link to={`/applications/edit/${item.record_id}`}>
               <Edit2 />
               编辑
@@ -969,10 +972,10 @@ function ApplicationTableRow({
             variant="ghost"
             size="icon"
             onClick={onDelete}
-            className="text-slate-500 hover:bg-red-50 hover:text-red-600"
+            className="size-8 text-slate-400 hover:bg-red-50 hover:text-red-600"
             aria-label="删除记录"
           >
-            <Trash2 />
+            <Trash2 className="size-4" />
           </Button>
         </div>
       </TableCell>
@@ -989,7 +992,7 @@ function ApplicationMobileCard({
 }: {
   item: ApplicationRecord;
   onDelete: () => void;
-  onOpenDetail: (kind: DetailKind) => void;
+  onOpenDetail: () => void;
   saving: boolean;
   onUpdate: (fields: Partial<ApplicationRecord['fields']>) => Promise<boolean>;
 }) {
@@ -998,16 +1001,16 @@ function ApplicationMobileCard({
   const theme: ApplicationStatusTheme = getApplicationStatusTheme(status);
 
   return (
-    <article className="relative overflow-hidden rounded-[22px] border border-white/90 bg-white/72 p-5 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.62)] backdrop-blur-xl">
+    <article className="relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/80 p-4 shadow-[0_12px_32px_-26px_rgba(15,23,42,0.5)] backdrop-blur-sm">
       <div
-        className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${theme.rail} to-transparent`}
+        className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${theme.rail} to-transparent`}
       />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold text-slate-950">
+          <h2 className="truncate text-base font-bold text-slate-950">
             {fields['公司名称'] || '-'}
           </h2>
-          <p className="mt-1 truncate text-base font-medium text-slate-600">
+          <p className="mt-0.5 truncate text-sm font-medium text-slate-600">
             {fields['岗位名称'] || '-'}
           </p>
         </div>
@@ -1018,17 +1021,17 @@ function ApplicationMobileCard({
           className="mx-0"
         />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-slate-50/80 p-3 text-[13px] text-slate-600">
         <div className="flex items-center gap-2">
-          <MapPin className="size-4" />
+          <MapPin className="size-3.5" />
           {formatLocations(fields['工作地区']) || '-'}
         </div>
         <InlineDateTimeEditor
           label="投递时间"
           value={fields['投递时间']}
-          emptyText="未记录"
+          emptyText="投递时间未记录"
           disabled={saving}
-          triggerClassName="text-sm text-slate-600"
+          triggerClassName="text-[13px] text-slate-600"
           onSave={(value: string) => onUpdate({ 投递时间: value })}
         />
       </div>
@@ -1040,8 +1043,8 @@ function ApplicationMobileCard({
           onSave={(value) => onUpdate({ 流程时间: value })}
         />
       </div>
-      <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/80 px-3 py-2.5 text-sm font-semibold text-cyan-900">
-        <span className="mb-1 block text-[11px] font-bold text-cyan-700">
+      <div className="mt-3 rounded-lg border border-teal-100/80 bg-teal-50/60 px-3 py-2.5 text-sm font-semibold text-teal-900">
+        <span className="mb-1 block text-[11px] font-bold text-teal-600">
           下一步
         </span>
         <InlineFieldEditor
@@ -1059,11 +1062,16 @@ function ApplicationMobileCard({
         className="mt-3 w-full"
         onSave={(value: string) => onUpdate({ 简历标识: value })}
       />
-      <div className="mt-3">
-        <DetailDrawerButtons fields={fields} onOpen={onOpenDetail} mobile />
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <span className="text-sm text-slate-500">
+      <button
+        type="button"
+        onClick={onOpenDetail}
+        className="mt-3 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 text-sm font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+      >
+        <FolderOpen className="size-4" />
+        查看资料
+      </button>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-xs text-slate-500">
           {fields['所属行业'] || '-'} · {fields['招聘渠道'] || '-'}
         </span>
         <div className="flex gap-2">
@@ -1071,10 +1079,10 @@ function ApplicationMobileCard({
             variant="ghost"
             size="icon"
             onClick={onDelete}
-            className="text-red-600"
+            className="size-8 text-slate-400 hover:bg-red-50 hover:text-red-600"
             aria-label="删除记录"
           >
-            <Trash2 />
+            <Trash2 className="size-4" />
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link to={`/applications/edit/${item.record_id}`}>
@@ -1085,399 +1093,6 @@ function ApplicationMobileCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function DetailDrawerButtons({
-  fields,
-  onOpen,
-}: {
-  fields: ApplicationRecord['fields'];
-  onOpen: (kind: DetailKind) => void;
-  mobile?: boolean;
-}) {
-  const noteAvailable: boolean = Boolean(fields['个人备注']?.trim());
-  const responsibilitiesAvailable: boolean = Boolean(
-    fields['岗位职责']?.trim(),
-  );
-  const requirementsAvailable: boolean = Boolean(fields['任职要求']?.trim());
-
-  return (
-    <div className="grid grid-cols-3 gap-1.5">
-      <DetailDrawerButton
-        label="个人备注"
-        icon={<StickyNote />}
-        available={noteAvailable}
-        onClick={() => onOpen('note')}
-      />
-      <DetailDrawerButton
-        label="岗位职责"
-        icon={<BookOpenText />}
-        available={responsibilitiesAvailable}
-        onClick={() => onOpen('responsibilities')}
-      />
-      <DetailDrawerButton
-        label="任职要求"
-        icon={<FileText />}
-        available={requirementsAvailable}
-        onClick={() => onOpen('requirements')}
-      />
-    </div>
-  );
-}
-
-function DetailDrawerButton({
-  label,
-  icon,
-  available,
-  onClick,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  available: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group/detail relative flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2.5 text-center transition hover:-translate-y-0.5 hover:shadow-sm ${
-        available
-          ? 'border-cyan-100 bg-gradient-to-r from-cyan-50 to-white text-slate-800 hover:border-cyan-300'
-          : 'border-dashed border-slate-200 bg-white/60 text-slate-400'
-      }`}
-    >
-      <span
-        className={`flex size-7 shrink-0 items-center justify-center rounded-lg [&>svg]:size-3.5 ${
-          available
-            ? 'bg-cyan-100 text-cyan-800'
-            : 'bg-slate-100 text-slate-400'
-        }`}
-      >
-        {icon}
-      </span>
-      <span className="whitespace-nowrap text-[11px] font-black">{label}</span>
-      <span
-        className={`absolute right-1.5 top-1.5 size-1.5 rounded-full ${
-          available ? 'bg-emerald-400' : 'bg-slate-200'
-        }`}
-        aria-hidden="true"
-      />
-    </button>
-  );
-}
-
-function ApplicationDetailDrawer({
-  detail,
-  onOpenChange,
-  saving,
-  onUpdate,
-}: {
-  detail: DetailDrawerState | null;
-  onOpenChange: (open: boolean) => void;
-  saving: boolean;
-  onUpdate: (fields: Partial<ApplicationRecord['fields']>) => Promise<boolean>;
-}) {
-  const fields: ApplicationRecord['fields'] | undefined = detail?.item.fields;
-  const status: string = fields?.['当前进度'] || '收藏';
-  const currentStatusIndex: number = Math.max(STATUS_ORDER.indexOf(status), 0);
-  const currentStageIndex: number = Math.max(
-    [
-      ['收藏', '准备中'],
-      ['已投递'],
-      ['测评', '笔试'],
-      ['AI面试', '一面', '二面', '三面', 'HR面'],
-      ['谈Offer', '已Offer', '已拒绝'],
-    ].findIndex((statuses: string[]) => statuses.includes(status)),
-    0,
-  );
-  const stages: string[] = ['准备', '投递', '测评笔试', '面试', '结果'];
-
-  return (
-    <Sheet open={Boolean(detail)} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[94vw] gap-0 border-l border-slate-200 bg-[#f7f8f8] p-0 sm:max-w-[680px]">
-        <SheetHeader className="border-b border-slate-200 bg-white px-6 pb-5 pt-7 pr-12 text-left">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <SheetTitle className="truncate text-2xl font-black tracking-[-0.025em] text-slate-950">
-                {fields?.['公司名称'] || '未命名公司'}
-              </SheetTitle>
-              <SheetDescription className="mt-1 truncate text-base font-medium text-slate-600">
-                {fields?.['岗位名称'] || '未命名岗位'}
-              </SheetDescription>
-            </div>
-            <ApplicationStatusSelect
-              value={status}
-              disabled={saving}
-              onChange={(value: string) => void onUpdate({ 当前进度: value })}
-              className="mx-0 mt-0.5"
-            />
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
-            <DrawerMeta
-              label="工作地区"
-              value={formatLocations(fields?.['工作地区'])}
-            />
-            <DrawerMeta label="投递渠道" value={fields?.['招聘渠道']} />
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold text-slate-400">投递时间</p>
-              <InlineDateTimeEditor
-                label="投递时间"
-                value={fields?.['投递时间']}
-                emptyText="未记录"
-                disabled={saving}
-                triggerClassName="mt-1 max-w-full font-semibold text-slate-700"
-                onSave={(value: string) => onUpdate({ 投递时间: value })}
-              />
-            </div>
-          </div>
-        </SheetHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold text-slate-400">流程位置</p>
-                <p className="mt-1 text-sm font-bold text-slate-900">
-                  当前节点：{status}
-                </p>
-              </div>
-              <span className="text-right text-[11px] leading-4 text-slate-400">
-                流程可能跳过节点
-                <br />
-                当前序号 {currentStatusIndex + 1}
-              </span>
-            </div>
-            <div className="mt-4">
-              <ApplicationProcessTimeline
-                value={fields?.['流程时间']}
-                currentStatus={status}
-                disabled={saving}
-                onSave={(value) => onUpdate({ 流程时间: value })}
-              />
-            </div>
-            <div className="mt-4 grid grid-cols-5 gap-1">
-              {stages.map((stage: string, index: number) => (
-                <div key={stage} className="min-w-0 text-center">
-                  <div className="flex items-center">
-                    <span
-                      className={`h-px flex-1 ${index <= currentStageIndex ? 'bg-cyan-500' : 'bg-slate-200'}`}
-                    />
-                    <span
-                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
-                        index < currentStageIndex
-                          ? 'border-cyan-200 bg-cyan-50 text-cyan-400'
-                          : index === currentStageIndex
-                            ? 'border-cyan-600 bg-white text-cyan-700 ring-4 ring-cyan-50'
-                            : 'border-slate-200 bg-white text-slate-300'
-                      }`}
-                    >
-                      <span className="size-1.5 rounded-full bg-current" />
-                    </span>
-                    <span
-                      className={`h-px flex-1 ${index < currentStageIndex ? 'bg-cyan-500' : 'bg-slate-200'}`}
-                    />
-                  </div>
-                  <p
-                    className={`mt-2 truncate text-[11px] font-bold ${
-                      index === currentStageIndex
-                        ? 'text-cyan-800'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {stage}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 rounded-xl bg-slate-50 px-3.5 py-3">
-              <p className="text-[11px] font-bold text-slate-400">下一步安排</p>
-              <InlineFieldEditor
-                label="下一步安排"
-                value={fields?.['下一步安排']}
-                emptyText="暂未安排下一步"
-                multiline
-                disabled={saving}
-                triggerClassName="mt-1 w-full text-sm font-semibold leading-6 text-slate-700"
-                onSave={(value: string) => onUpdate({ 下一步安排: value })}
-              />
-            </div>
-          </section>
-
-          <Tabs
-            key={`${detail?.item.record_id || 'empty'}-${detail?.kind || 'note'}`}
-            defaultValue={detail?.kind || 'note'}
-            className="mt-4"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <TabsList className="grid h-10 flex-1 grid-cols-3 bg-slate-200/70 p-1">
-                <TabsTrigger value="note" className="text-xs font-bold">
-                  个人备注
-                </TabsTrigger>
-                <TabsTrigger
-                  value="responsibilities"
-                  className="text-xs font-bold"
-                >
-                  岗位职责
-                </TabsTrigger>
-                <TabsTrigger value="requirements" className="text-xs font-bold">
-                  任职要求
-                </TabsTrigger>
-              </TabsList>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="bg-white text-slate-500"
-              >
-                <Link to={`/applications/edit/${detail?.item.record_id || ''}`}>
-                  <Edit2 />
-                  完整编辑
-                </Link>
-              </Button>
-            </div>
-            <DrawerTabContent
-              value="note"
-              icon={<StickyNote />}
-              title="个人备注"
-              content={fields?.['个人备注']}
-              saving={saving}
-              onSave={(value: string) => onUpdate({ 个人备注: value })}
-            />
-            <DrawerTabContent
-              value="responsibilities"
-              icon={<BookOpenText />}
-              title="岗位职责"
-              content={fields?.['岗位职责']}
-              saving={saving}
-              onSave={(value: string) => onUpdate({ 岗位职责: value })}
-            />
-            <DrawerTabContent
-              value="requirements"
-              icon={<FileText />}
-              title="任职要求"
-              content={fields?.['任职要求']}
-              saving={saving}
-              onSave={(value: string) => onUpdate({ 任职要求: value })}
-            />
-          </Tabs>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function DrawerMeta({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[11px] font-bold text-slate-400">{label}</p>
-      <p className="mt-1 truncate font-semibold text-slate-700">
-        {value || '未填写'}
-      </p>
-    </div>
-  );
-}
-
-function DrawerTabContent({
-  value,
-  icon,
-  title,
-  content,
-  saving,
-  onSave,
-}: {
-  value: DetailKind;
-  icon: React.ReactNode;
-  title: string;
-  content?: string;
-  saving: boolean;
-  onSave: (value: string) => Promise<boolean>;
-}) {
-  const normalizedContent: string = content?.trim() || '';
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(content || '');
-
-  const saveContent = async () => {
-    const saved: boolean = await onSave(draft.trim());
-    if (saved) setEditing(false);
-  };
-
-  return (
-    <TabsContent value={value} className="mt-3">
-      <section className="min-h-64 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-black text-slate-900">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-cyan-50 text-cyan-800 [&>svg]:size-4">
-              {icon}
-            </span>
-            {title}
-          </div>
-          {!editing && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={saving}
-              onClick={() => {
-                setDraft(content || '');
-                setEditing(true);
-              }}
-            >
-              <Edit2 />
-              编辑
-            </Button>
-          )}
-        </div>
-        {editing ? (
-          <div className="mt-4">
-            <Textarea
-              autoFocus
-              value={draft}
-              disabled={saving}
-              onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setDraft(event.target.value)
-              }
-              className="min-h-56 resize-y leading-7"
-              placeholder={`填写${title}`}
-              onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter')
-                  void saveContent();
-              }}
-            />
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-xs text-slate-400">Ctrl + Enter 保存</span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={saving}
-                  onClick={() => setEditing(false)}
-                >
-                  取消
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={saving}
-                  onClick={() => void saveContent()}
-                >
-                  {saving ? '保存中...' : '保存'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div
-            className={`mt-4 whitespace-pre-wrap text-sm leading-7 ${
-              normalizedContent ? 'text-slate-700' : 'text-slate-400'
-            }`}
-          >
-            {normalizedContent || `暂未填写${title}。`}
-          </div>
-        )}
-      </section>
-    </TabsContent>
   );
 }
 
@@ -1506,4 +1121,406 @@ function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
 
 function formatDate(value?: string): string {
   return formatApplicationTime(value);
+}
+
+interface ListPaginationProps {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}
+
+function ListPagination({
+  page,
+  totalPages,
+  total,
+  pageSize,
+  onPageChange,
+}: ListPaginationProps) {
+  if (total === 0) return null;
+  const pageNumbers: number[] = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  return (
+    <nav
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-4 py-2.5 backdrop-blur-sm"
+      aria-label="投递列表分页"
+    >
+      <span className="text-xs text-slate-500">
+        共 {total} 条 · 每页 {pageSize} 条
+      </span>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="上一页"
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        {pageNumbers.map((pageNumber: number) => (
+          <button
+            key={pageNumber}
+            type="button"
+            onClick={() => onPageChange(pageNumber)}
+            aria-current={pageNumber === page ? 'page' : undefined}
+            className={cn(
+              'inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40',
+              pageNumber === page
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800',
+            )}
+          >
+            {pageNumber}
+          </button>
+        ))}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="下一页"
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </nav>
+  );
+}
+
+function ApplicationDetailDrawer({
+  detail,
+  onOpenChange,
+  saving,
+  onUpdate,
+}: {
+  detail: DetailDrawerState | null;
+  onOpenChange: (open: boolean) => void;
+  saving: boolean;
+  onUpdate: (fields: Partial<ApplicationRecord['fields']>) => Promise<boolean>;
+}) {
+  const fields: ApplicationRecord['fields'] | undefined = detail?.item.fields;
+  const status: string = fields?.['当前进度'] || '收藏';
+  const updatedAt: string | undefined =
+    detail?.item.updated_at || detail?.item.created_at;
+
+  return (
+    <Sheet open={Boolean(detail)} onOpenChange={onOpenChange}>
+      <SheetContent className="w-[94vw] gap-0 border-l border-white/60 bg-[#f6f8fa]/95 p-0 backdrop-blur-xl sm:max-w-[min(620px,42vw)] sm:min-w-[520px]">
+        <SheetHeader className="border-b border-slate-200/70 bg-white/70 px-6 pb-4 pt-6 pr-12 text-left">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <SheetTitle className="truncate text-xl font-bold tracking-[-0.02em] text-slate-950">
+                {fields?.['公司名称'] || '未命名公司'}
+              </SheetTitle>
+              <SheetDescription className="mt-0.5 truncate text-sm font-medium text-slate-600">
+                {fields?.['岗位名称'] || '未命名岗位'}
+              </SheetDescription>
+            </div>
+            <ApplicationStatusSelect
+              value={status}
+              disabled={saving}
+              onChange={(value: string) => void onUpdate({ 当前进度: value })}
+              className="mx-0 mt-0.5"
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-3 text-sm">
+            <DrawerMeta
+              label="工作地区"
+              value={formatLocations(fields?.['工作地区'])}
+            />
+            <DrawerMeta label="招聘渠道" value={fields?.['招聘渠道']} />
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400">投递时间</p>
+              <InlineDateTimeEditor
+                label="投递时间"
+                value={fields?.['投递时间']}
+                emptyText="未记录"
+                disabled={saving}
+                triggerClassName="mt-0.5 max-w-full text-[13px] font-semibold text-slate-700"
+                onSave={(value: string) => onUpdate({ 投递时间: value })}
+              />
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+          <section className="rounded-xl border border-slate-200/80 bg-white/85 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-bold text-slate-400">招聘流程</p>
+              <span className="text-[11px] text-slate-400">
+                节点可独立补记，无需按顺序
+              </span>
+            </div>
+            <ProcessStageTimeline
+              value={fields?.['流程时间']}
+              currentStatus={status}
+              disabled={saving}
+              onStageTime={(stage: ApplicationProcessStage, time: string) => {
+                const merged: ApplicationProcessTimes = {
+                  ...(fields?.['流程时间'] || {}),
+                };
+                if (time) merged[stage] = time;
+                else delete merged[stage];
+                return onUpdate({ 流程时间: merged });
+              }}
+            />
+            <div className="mt-3 rounded-lg bg-slate-50/80 px-3 py-2.5">
+              <p className="text-[11px] font-bold text-slate-400">下一步安排</p>
+              <InlineFieldEditor
+                label="下一步安排"
+                value={fields?.['下一步安排']}
+                emptyText="暂未安排下一步"
+                multiline
+                disabled={saving}
+                triggerClassName="mt-0.5 w-full text-sm font-semibold leading-6 text-slate-700"
+                onSave={(value: string) => onUpdate({ 下一步安排: value })}
+              />
+            </div>
+          </section>
+
+          <MaterialCard
+            icon={<StickyNote />}
+            title="个人备注"
+            content={fields?.['个人备注']}
+            updatedAt={updatedAt}
+            saving={saving}
+            onSave={(value: string) => onUpdate({ 个人备注: value })}
+          />
+          <MaterialCard
+            icon={<BookOpenText />}
+            title="岗位职责"
+            content={fields?.['岗位职责']}
+            updatedAt={updatedAt}
+            saving={saving}
+            onSave={(value: string) => onUpdate({ 岗位职责: value })}
+          />
+          <MaterialCard
+            icon={<FileText />}
+            title="任职要求"
+            content={fields?.['任职要求']}
+            updatedAt={updatedAt}
+            saving={saving}
+            onSave={(value: string) => onUpdate({ 任职要求: value })}
+          />
+
+          <section className="rounded-xl border border-slate-200/80 bg-white/85 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                <FileText className="size-4 text-teal-700" />
+                简历标识
+              </p>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-slate-500"
+              >
+                <Link to={`/applications/edit/${detail?.item.record_id || ''}`}>
+                  <Edit2 />
+                  完整编辑
+                </Link>
+              </Button>
+            </div>
+            <ResumeVersionEditor
+              value={fields?.['简历标识']}
+              disabled={saving}
+              className="mt-2 w-full"
+              onSave={(value: string) => onUpdate({ 简历标识: value })}
+            />
+          </section>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// 资料抽屉内的招聘流程节点图：每个节点标注时间，点击即可修改，无需按顺序推进
+function ProcessStageTimeline({
+  value,
+  currentStatus,
+  disabled,
+  onStageTime,
+}: {
+  value?: ApplicationProcessTimes;
+  currentStatus?: string;
+  disabled: boolean;
+  onStageTime: (
+    stage: ApplicationProcessStage,
+    time: string,
+  ) => Promise<boolean>;
+}) {
+  const processTimes: ApplicationProcessTimes = value || {};
+
+  return (
+    <ol className="mt-3 space-y-0.5">
+      {PROCESS_TIME_STAGES.map(
+        (stage: ApplicationProcessStage, index: number) => {
+          const time: string | undefined = processTimes[stage] || undefined;
+          const isCurrent: boolean = currentStatus === stage;
+          return (
+            <li
+              key={stage}
+              className="relative flex items-center gap-3 py-1 pl-0.5"
+            >
+              {index < PROCESS_TIME_STAGES.length - 1 && (
+                <span
+                  className="absolute left-[5.5px] top-4 h-[calc(100%-8px)] w-px bg-slate-200"
+                  aria-hidden="true"
+                />
+              )}
+              <span
+                className={cn(
+                  'relative z-10 size-[11px] shrink-0 rounded-full border-2',
+                  time
+                    ? 'border-teal-500 bg-teal-500'
+                    : isCurrent
+                      ? 'border-cyan-400 bg-white'
+                      : 'border-slate-300 bg-white',
+                )}
+                aria-hidden="true"
+              />
+              <span
+                className={cn(
+                  'w-14 shrink-0 text-[13px]',
+                  isCurrent
+                    ? 'font-bold text-slate-900'
+                    : 'font-medium text-slate-600',
+                )}
+              >
+                {stage}
+              </span>
+              <InlineDateTimeEditor
+                label={`${stage}时间`}
+                value={time}
+                emptyText="未记录，点击补记"
+                disabled={disabled}
+                triggerClassName="min-w-0 flex-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                onSave={(nextTime: string) => onStageTime(stage, nextTime)}
+              />
+            </li>
+          );
+        },
+      )}
+    </ol>
+  );
+}
+
+function DrawerMeta({ label, value }: { label: string; value?: string }) {  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-bold text-slate-400">{label}</p>
+      <p className="mt-0.5 truncate text-[13px] font-semibold text-slate-700">
+        {value || '未填写'}
+      </p>
+    </div>
+  );
+}
+
+function MaterialCard({
+  icon,
+  title,
+  content,
+  updatedAt,
+  saving,
+  onSave,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  content?: string;
+  updatedAt?: string;
+  saving: boolean;
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const normalizedContent: string = content?.trim() || '';
+  const [editing, setEditing] = useState<boolean>(false);
+  const [draft, setDraft] = useState<string>(content || '');
+
+  const saveContent = async () => {
+    const saved: boolean = await onSave(draft.trim());
+    if (saved) setEditing(false);
+  };
+
+  return (
+    <section className="rounded-xl border border-slate-200/80 bg-white/85 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-teal-50 text-teal-700 [&>svg]:size-4">
+            {icon}
+          </span>
+          {title}
+        </div>
+        {!editing && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={saving}
+            onClick={() => {
+              setDraft(content || '');
+              setEditing(true);
+            }}
+          >
+            <Edit2 />
+            编辑
+          </Button>
+        )}
+      </div>
+      {editing ? (
+        <div className="mt-3">
+          <Textarea
+            autoFocus
+            value={draft}
+            disabled={saving}
+            onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setDraft(event.target.value)
+            }
+            className="min-h-48 resize-y leading-7"
+            placeholder={`填写${title}`}
+            onKeyDown={(event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter')
+                void saveContent();
+            }}
+          />
+          <div className="mt-2.5 flex items-center justify-between">
+            <span className="text-xs text-slate-400">Ctrl + Enter 保存</span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={() => setEditing(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={saving}
+                onClick={() => void saveContent()}
+              >
+                {saving ? '保存中...' : '保存'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`mt-3 whitespace-pre-wrap text-sm leading-7 ${
+            normalizedContent ? 'text-slate-700' : 'text-slate-400'
+          }`}
+        >
+          {normalizedContent || `暂未填写${title}。`}
+        </div>
+      )}
+      <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] text-slate-400">
+        更新于 {formatApplicationTime(updatedAt) || '未记录'}
+      </p>
+    </section>
+  );
 }

@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ClipboardPaste,
   ExternalLink,
-  FileSearch,
   Globe2,
   LoaderCircle,
   Search,
@@ -20,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CompactStepper, SegmentedControl } from '@/components/page-ui';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useSessionState } from '@/hooks/useSessionState';
@@ -308,17 +308,15 @@ export default function Scraping() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <header className="ui-page-header space-y-2 px-5 py-5 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="secondary"
-            className="gap-1.5 rounded-lg border border-teal-100 bg-teal-50 text-teal-800"
-          >
-            <Sparkles className="size-3.5" />
-            AI 辅助整理
-          </Badge>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-[28px]">
+      <header className="ui-page-header space-y-2 px-5 py-4 sm:px-6">
+        <Badge
+          variant="secondary"
+          className="gap-1.5 rounded-lg border border-teal-100 bg-teal-50 text-teal-700"
+        >
+          <Sparkles className="size-3.5" />
+          AI 辅助整理
+        </Badge>
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
           岗位采集
         </h1>
         <p className="max-w-2xl text-sm leading-6 text-slate-500">
@@ -326,59 +324,37 @@ export default function Scraping() {
         </p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3" aria-label="岗位采集流程">
-        {[
-          {
-            icon: Globe2,
-            title: '1. 提供来源',
-            copy: '粘贴岗位链接或招聘文本',
-          },
-          {
-            icon: FileSearch,
-            title: '2. 自动识别',
-            copy: '提取公司、岗位和任职要求',
-          },
-          {
-            icon: CheckCircle2,
-            title: '3. 校对保存',
-            copy: '人工确认后加入投递列表',
-          },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.title} className="ui-surface p-4">
-              <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
-                <Icon className="size-5" />
-              </div>
-              <div className="text-sm font-bold text-slate-800">
-                {item.title}
-              </div>
-              <div className="mt-1 text-xs leading-5 text-slate-500">
-                {item.copy}
-              </div>
-            </div>
-          );
-        })}
+      <section
+        className="glass-panel px-4 py-3"
+        aria-label="岗位采集流程"
+      >
+        <CompactStepper
+          activeIndex={
+            stage === 'idle'
+              ? 0
+              : stage === 'ready' || stage === 'saving'
+                ? 2
+                : 1
+          }
+          steps={[
+            { label: '提供来源', hint: '粘贴链接或文本' },
+            { label: '自动识别', hint: '提取岗位信息' },
+            { label: '校对保存', hint: '确认后入列表' },
+          ]}
+        />
       </section>
 
       <section className="ui-surface p-4 sm:p-5">
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
-          <Button
-            type="button"
-            variant={mode === 'url' ? 'default' : 'outline'}
-            onClick={() => setMode('url')}
-          >
-            <Globe2 />
-            读取岗位链接
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'text' ? 'default' : 'outline'}
-            onClick={() => setMode('text')}
-          >
-            <ClipboardPaste />
-            粘贴岗位文本
-          </Button>
+        <div className="border-b border-slate-100 pb-4">
+          <SegmentedControl
+            value={mode}
+            onChange={(next: SourceMode) => setMode(next)}
+            ariaLabel="选择采集来源"
+            options={[
+              { value: 'url', label: '读取岗位链接', icon: <Globe2 className="size-3.5" /> },
+              { value: 'text', label: '粘贴岗位文本', icon: <ClipboardPaste className="size-3.5" /> },
+            ]}
+          />
         </div>
 
         {mode === 'url' ? (
@@ -398,7 +374,8 @@ export default function Scraping() {
                   type="button"
                   onClick={handleReadUrl}
                   disabled={isProcessing || !url.trim()}
-                  className="sm:min-w-36"
+                  className="sm:min-w-40"
+                  size="lg"
                 >
                   {stage === 'reading' ? (
                     <LoaderCircle className="animate-spin" />
@@ -408,44 +385,43 @@ export default function Scraping() {
                   读取并识别
                 </Button>
               </div>
-              <p className="text-xs leading-5 text-gray-500">
+              <p className="text-xs leading-5 text-slate-500">
                 适合公司官网等公开页面。需要登录或有访问限制时，请改用粘贴文本。
               </p>
             </div>
 
             <div>
-              <div className="mb-3 text-sm font-bold text-slate-700">
+              <div className="mb-2 text-[13px] font-semibold text-slate-500">
                 常用招聘平台
               </div>
               {platformsLoading && (
-                <div className="text-sm text-gray-400">正在加载……</div>
+                <div className="text-sm text-slate-400">正在加载……</div>
               )}
               {platformsError && (
                 <div className="text-sm text-red-600">{platformsError}</div>
               )}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {platforms.map((platform: Platform) => (
                   <div
                     key={platform.id}
-                    className="rounded-xl border border-slate-200 bg-slate-50/45 p-3 transition hover:border-teal-200 hover:bg-white hover:shadow-sm"
+                    className="rounded-lg border border-slate-200/70 bg-white/60 p-2.5 transition hover:border-teal-200 hover:bg-white/90"
                   >
-                    <div className="flex items-start gap-2">
-                      <Building2 className="mt-0.5 size-4 shrink-0 text-teal-700" />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-gray-800">
-                          {platform.name}
-                        </div>
-                        <div className="mt-1 text-xs leading-4 text-gray-500">
-                          {platform.description}
-                        </div>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="size-3.5 shrink-0 text-slate-400" />
+                      <div className="truncate text-[13px] font-semibold text-slate-700">
+                        {platform.name}
                       </div>
                     </div>
+                    <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
+                      {platform.description}
+                    </div>
                     {platform.url && (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
+                          className="h-7 px-2 text-xs"
                           onClick={() => setUrl(platform.url)}
                         >
                           选择
@@ -454,9 +430,9 @@ export default function Scraping() {
                           href={platform.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex min-h-8 items-center gap-1 px-1 text-xs font-semibold text-teal-700 hover:text-teal-900"
+                          className="inline-flex min-h-7 items-center gap-1 px-1 text-xs font-semibold text-teal-700 hover:text-teal-900"
                         >
-                          打开 <ExternalLink className="size-3.5" />
+                          打开 <ExternalLink className="size-3" />
                         </a>
                       </div>
                     )}
@@ -477,13 +453,14 @@ export default function Scraping() {
               disabled={isProcessing}
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-slate-500">
                 已输入 {jobText.trim().length} 个字
               </span>
               <Button
                 type="button"
                 onClick={handleExtractText}
                 disabled={isProcessing || jobText.trim().length < 20}
+                size="lg"
               >
                 {stage === 'extracting' ? (
                   <LoaderCircle className="animate-spin" />

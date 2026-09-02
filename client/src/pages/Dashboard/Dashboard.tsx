@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   closestCorners,
   DndContext,
@@ -23,13 +23,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  ArrowRight,
   CalendarClock,
   CheckCircle2,
   CircleX,
   ExternalLink,
   GripVertical,
   LayoutGrid,
+  List,
   MapPin,
   Pin,
   Plus,
@@ -44,6 +44,7 @@ import { api } from '@/api';
 import { InlineFieldEditor } from '@/components/application/InlineFieldEditor';
 import { InlineDateTimeEditor } from '@/components/application/InlineDateTimeEditor';
 import { ApplicationProcessTimeline } from '@/components/application/ApplicationProcessTimeline';
+import { PageHeader, SegmentedControl, StatTintCard } from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -89,34 +90,41 @@ interface PendingStageMove {
   targetGroup: StatusGroup;
 }
 
+// 列语义色：准备=Slate 已投递=Blue 测评=Purple 面试=Cyan 结果=Green
+// 列背景只使用低透明度 tint
 const STAGE_STYLES: Record<
   string,
-  { dot: string; line: string; soft: string }
+  { dot: string; line: string; soft: string; column: string }
 > = {
   prepare: {
-    dot: 'bg-slate-500',
-    line: 'bg-slate-400',
-    soft: 'bg-slate-100 text-slate-700',
+    dot: 'bg-slate-400',
+    line: 'bg-slate-300',
+    soft: 'bg-slate-100 text-slate-600',
+    column: 'bg-slate-100/45',
   },
   apply: {
-    dot: 'bg-sky-500',
-    line: 'bg-sky-500',
-    soft: 'bg-sky-50 text-sky-800',
+    dot: 'bg-blue-500',
+    line: 'bg-blue-400',
+    soft: 'bg-blue-50 text-blue-700',
+    column: 'bg-blue-50/60',
   },
   assessment: {
-    dot: 'bg-violet-500',
-    line: 'bg-violet-500',
-    soft: 'bg-violet-50 text-violet-800',
+    dot: 'bg-purple-500',
+    line: 'bg-purple-400',
+    soft: 'bg-purple-50 text-purple-700',
+    column: 'bg-purple-50/60',
   },
   interview: {
-    dot: 'bg-teal-500',
-    line: 'bg-teal-500',
-    soft: 'bg-teal-50 text-teal-800',
+    dot: 'bg-cyan-500',
+    line: 'bg-cyan-400',
+    soft: 'bg-cyan-50 text-cyan-700',
+    column: 'bg-cyan-50/55',
   },
   result: {
-    dot: 'bg-amber-500',
-    line: 'bg-amber-500',
-    soft: 'bg-amber-50 text-amber-800',
+    dot: 'bg-emerald-500',
+    line: 'bg-emerald-400',
+    soft: 'bg-emerald-50 text-emerald-700',
+    column: 'bg-emerald-50/60',
   },
 };
 
@@ -228,6 +236,7 @@ function LiveUpdateTime({ value }: { value?: string }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { data, loading, error, refetch } = useApplications();
   const [records, setRecords] = useState<ApplicationRecord[] | null>(null);
   const { value: keyword, setValue: setKeyword } = useSessionState<string>(
@@ -443,7 +452,7 @@ export default function Dashboard() {
     const currentlyPinned: boolean = isPinned(application);
     const pinnedCount: number = orderedApplications.filter(isPinned).length;
     if (!currentlyPinned && pinnedCount >= MAX_PINNED_PER_GROUP) {
-      toast.error(`每个阶段最多置顶 ${MAX_PINNED_PER_GROUP} 条投递`);
+      toast.error(`每个阶段最多标记 ${MAX_PINNED_PER_GROUP} 条重点投递`);
       return;
     }
 
@@ -473,7 +482,7 @@ export default function Dashboard() {
       applications,
       nextApplications,
       normalized,
-      currentlyPinned ? '已取消置顶' : '已置顶',
+      currentlyPinned ? '已取消重点标记' : '已标为重点',
     );
   };
 
@@ -562,63 +571,58 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
-      <header className="relative overflow-hidden rounded-[26px] bg-[linear-gradient(122deg,#092235_0%,#0b3a4b_60%,#086267_100%)] px-5 py-6 text-white shadow-[0_20px_50px_-34px_rgba(8,47,73,0.75)] md:px-7">
-        <div className="absolute -right-16 -top-24 size-80 rounded-full bg-cyan-300/15 blur-3xl" />
-        <div className="absolute -bottom-32 right-1/3 size-64 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/70 to-transparent" />
-        <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold tracking-[0.16em] text-cyan-200">
-              <LayoutGrid className="size-4" />
-              招聘流程总览
-            </div>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.035em] md:text-[34px]">
-              投递看板
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-300">
-              一屏掌握全部进展，拖动卡片调整阶段与跟进优先级。
-            </p>
-          </div>
-          <div className="flex flex-wrap items-stretch gap-2.5">
-            <Metric
-              label="全部"
-              value={applications.length}
-              icon={<Target />}
-              tone="cyan"
-            />
-            <Metric
-              label="已投递"
-              value={counts['已投递'] || 0}
-              icon={<Send />}
-              tone="sky"
-            />
-            <Metric
-              label="推进中"
-              value={inProgress}
-              icon={<CalendarClock />}
-              tone="violet"
-            />
-            <Metric
-              label="已获 Offer"
-              value={counts['已Offer'] || 0}
-              icon={<CheckCircle2 />}
-              tone="emerald"
-            />
-            <Button
-              asChild
-              className="ml-0 h-auto min-h-14 self-stretch border border-white/40 bg-white px-4 font-bold text-slate-950 shadow-[0_12px_28px_-16px_rgba(255,255,255,0.75)] transition-transform duration-150 active:scale-[0.97] md:ml-1 md:min-h-[68px]"
-            >
-              <Link to="/applications/new">
-                <Plus />
-                添加投递
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="招聘流程总览"
+        title="投递看板"
+        description="一屏掌握全部进展，拖动卡片调整阶段与跟进优先级。"
+        actions={
+          <Button asChild>
+            <Link to="/applications/new">
+              <Plus />
+              添加投递
+            </Link>
+          </Button>
+        }
+      />
 
-      <section className="ui-surface flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative min-w-0 flex-1 lg:max-w-lg">
+      <section
+        className="flex flex-wrap items-stretch gap-2"
+        aria-label="投递统计"
+      >
+        <StatTintCard
+          label="全部"
+          value={applications.length}
+          icon={<Target />}
+          tone="slate"
+        />
+        <StatTintCard
+          label="已投递"
+          value={counts['已投递'] || 0}
+          icon={<Send />}
+          tone="blue"
+        />
+        <StatTintCard
+          label="推进中"
+          value={inProgress}
+          icon={<CalendarClock />}
+          tone="purple"
+        />
+        <StatTintCard
+          label="Offer"
+          value={counts['已Offer'] || 0}
+          icon={<CheckCircle2 />}
+          tone="green"
+        />
+        <StatTintCard
+          label="拒绝"
+          value={counts['已拒绝'] || 0}
+          icon={<CircleX />}
+          tone="red"
+        />
+      </section>
+
+      <section className="glass-toolbar flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative min-w-0 flex-1 lg:max-w-md">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
           <Input
             value={keyword}
@@ -626,14 +630,14 @@ export default function Dashboard() {
               setKeyword(event.target.value)
             }
             placeholder="搜索公司、岗位、地区或行业"
-            className="h-10 border-slate-200 bg-slate-50 pl-9 shadow-none"
+            className="h-10 border-slate-200/80 bg-white/70 pl-9 shadow-none"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs text-slate-500">
             {keyword
               ? `找到 ${visibleApplications.length} 条`
-              : '每列最多置顶 3 条，普通卡片可上下滚动'}
+              : '每列最多标记 3 条重点，重点投递优先排列'}
           </span>
           <Button
             variant="outline"
@@ -644,12 +648,17 @@ export default function Dashboard() {
             <RefreshCw className={loading ? 'animate-spin' : ''} />
             刷新
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/applications">
-              列表视图
-              <ArrowRight />
-            </Link>
-          </Button>
+          <SegmentedControl
+            value="board"
+            onChange={(value: 'board' | 'list') => {
+              if (value === 'list') navigate('/applications');
+            }}
+            ariaLabel="切换视图"
+            options={[
+              { value: 'board', label: '看板', icon: <LayoutGrid className="size-3.5" /> },
+              { value: 'list', label: '列表', icon: <List className="size-3.5" /> },
+            ]}
+          />
         </div>
       </section>
 
@@ -660,7 +669,7 @@ export default function Dashboard() {
         onDragCancel={() => setActiveId(null)}
         onDragEnd={handleDragEnd}
       >
-        <section className="overflow-x-auto rounded-[22px] border border-slate-200 bg-[#f4f6f7] p-3 shadow-[0_18px_48px_-40px_rgba(15,23,42,0.55)] [scrollbar-color:#94a3b8_transparent] [scrollbar-width:thin]">
+        <section className="overflow-x-auto rounded-2xl border border-slate-200/70 bg-white/40 p-3 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.4)] backdrop-blur-sm [scrollbar-color:#94a3b8_transparent] [scrollbar-width:thin]">
           <div className="grid min-w-[1240px] grid-cols-5 gap-2.5">
             {STATUS_GROUPS.map((group: StatusGroup) => (
               <StageColumn
@@ -696,8 +705,8 @@ export default function Dashboard() {
       </DndContext>
 
       {applications.length === 0 && (
-        <section className="rounded-3xl border border-dashed border-cyan-300 bg-cyan-50 px-6 py-12 text-center">
-          <Target className="mx-auto size-10 text-cyan-700" />
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center backdrop-blur-sm">
+          <Target className="mx-auto size-10 text-teal-700" />
           <h2 className="mt-4 text-xl font-bold text-slate-950">
             从第一张卡片开始
           </h2>
@@ -793,12 +802,14 @@ function StageColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`relative flex h-[620px] min-w-0 flex-col overflow-hidden rounded-[18px] border bg-white transition ${
-        isOver ? 'border-cyan-400 ring-2 ring-cyan-200' : 'border-slate-200'
-      }`}
+      className={`relative flex h-[620px] min-w-0 flex-col overflow-hidden rounded-xl border transition ${
+        isOver
+          ? 'border-teal-400 ring-2 ring-teal-200/70'
+          : 'border-slate-200/80'
+      } ${style.column}`}
     >
-      <div className={`h-1 shrink-0 ${style.line}`} />
-      <header className="shrink-0 border-b border-slate-100 px-3.5 py-3">
+      <div className={`h-0.5 shrink-0 ${style.line}`} />
+      <header className="shrink-0 border-b border-white/70 bg-white/55 px-3.5 py-2.5 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -826,64 +837,88 @@ function StageColumn({
         </div>
       </header>
 
-      {pinnedApplications.length > 0 && (
-        <div className="shrink-0 border-b border-slate-100 bg-amber-50/45 px-2 py-2">
-          <div className="mb-1.5 flex items-center gap-1 px-1 text-[10px] font-bold tracking-[0.12em] text-amber-700">
-            <Pin className="size-3" />
-            重点跟进
-          </div>
-          <SortableContext
-            items={pinnedApplications.map(
-              (application: ApplicationRecord) => application.record_id || '',
-            )}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-1.5">
-              {pinnedApplications.map((application: ApplicationRecord) => (
-                <ApplicationCard
-                  key={application.record_id}
-                  application={application}
-                  compact
-                  saving={savingId === application.record_id}
-                  onMove={onMove}
-                  onTogglePin={onTogglePin}
-                  onUpdate={onUpdate}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </div>
-      )}
-
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin]">
-        <SortableContext
-          items={regularApplications.map(
-            (application: ApplicationRecord) => application.record_id || '',
-          )}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-2">
-            {regularApplications.map((application: ApplicationRecord) => (
-              <ApplicationCard
-                key={application.record_id}
-                application={application}
-                saving={savingId === application.record_id}
-                onMove={onMove}
-                onTogglePin={onTogglePin}
-                onUpdate={onUpdate}
-              />
-            ))}
-          </div>
-        </SortableContext>
+        {pinnedApplications.length > 0 && (
+          <section aria-label="重点跟进">
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-bold text-amber-800">
+              <span className="flex items-center gap-1 tracking-[0.12em]">
+                <Pin className="size-3" />
+                重点跟进
+              </span>
+              <span className="tracking-normal text-amber-700/80">
+                {pinnedApplications.length}/{MAX_PINNED_PER_GROUP}
+              </span>
+            </div>
+            <SortableContext
+              items={pinnedApplications.map(
+                (application: ApplicationRecord) => application.record_id || '',
+              )}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {pinnedApplications.map((application: ApplicationRecord) => (
+                  <ApplicationCard
+                    key={application.record_id}
+                    application={application}
+                    saving={savingId === application.record_id}
+                    onMove={onMove}
+                    onTogglePin={onTogglePin}
+                    onUpdate={onUpdate}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </section>
+        )}
+
+        {regularApplications.length > 0 && (
+          <section
+            aria-label="其他投递"
+            className={
+              pinnedApplications.length > 0
+                ? 'mt-3 border-t border-slate-200 pt-2'
+                : undefined
+            }
+          >
+            {pinnedApplications.length > 0 && (
+              <div className="mb-2 flex items-center justify-between px-1 text-[10px] font-bold tracking-[0.12em] text-slate-500">
+                <span>其他投递</span>
+                <span className="tracking-normal text-slate-400">
+                  {regularApplications.length}
+                </span>
+              </div>
+            )}
+            <SortableContext
+              items={regularApplications.map(
+                (application: ApplicationRecord) => application.record_id || '',
+              )}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {regularApplications.map((application: ApplicationRecord) => (
+                  <ApplicationCard
+                    key={application.record_id}
+                    application={application}
+                    saving={savingId === application.record_id}
+                    onMove={onMove}
+                    onTogglePin={onTogglePin}
+                    onUpdate={onUpdate}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </section>
+        )}
+
         {regularApplications.length === 0 &&
           pinnedApplications.length === 0 && (
-            <div
-              className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
-                isOver
-                  ? 'border-cyan-400 bg-cyan-50 font-bold text-cyan-800'
-                  : 'border-slate-200 text-slate-400'
-              }`}
-            >
+              <div
+                  className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
+                    isOver
+                      ? 'border-teal-400 bg-teal-50/80 font-bold text-teal-800'
+                      : 'border-slate-200 text-slate-400'
+                  }`}
+                >
               {isOver ? `松开后移至${group.label}` : '暂无投递，拖到这里'}
             </div>
           )}
@@ -896,7 +931,6 @@ function ApplicationCard({
   application,
   saving = false,
   overlay = false,
-  compact = false,
   onMove,
   onTogglePin,
   onUpdate,
@@ -904,7 +938,6 @@ function ApplicationCard({
   application: ApplicationRecord;
   saving?: boolean;
   overlay?: boolean;
-  compact?: boolean;
   onMove: (application: ApplicationRecord, status: string) => Promise<void>;
   onTogglePin: (application: ApplicationRecord) => Promise<void>;
   onUpdate: (
@@ -938,14 +971,14 @@ function ApplicationCard({
     <article
       ref={setNodeRef}
       style={cardStyle}
-      className={`group relative rounded-xl border bg-white transition ${
+      className={`group relative rounded-xl border bg-white/85 p-3 backdrop-blur-[2px] transition ${
         pinned
           ? 'border-amber-200 shadow-[0_8px_22px_-18px_rgba(180,83,9,0.5)]'
-          : 'border-slate-200 shadow-[0_8px_20px_-18px_rgba(15,23,42,0.48)]'
-      } ${compact ? 'px-2.5 py-2' : 'p-3'} ${
+          : 'border-slate-200/85 shadow-[0_6px_18px_-16px_rgba(15,23,42,0.4)]'
+      } ${
         isDragging
           ? 'opacity-25'
-          : 'hover:border-slate-300 hover:shadow-[0_12px_26px_-18px_rgba(15,23,42,0.5)]'
+          : 'hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)]'
       } ${saving ? 'animate-pulse' : ''}`}
     >
       <div className="flex items-start gap-1.5">
@@ -955,6 +988,11 @@ function ApplicationCard({
             <span className="truncate text-[10px] font-bold text-slate-400">
               {status}
             </span>
+            {pinned && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-amber-800">
+                重点
+              </span>
+            )}
           </div>
           <h3 className="mt-1.5 truncate text-sm font-black text-slate-950">
             {fields['公司名称'] || '未命名公司'}
@@ -968,34 +1006,33 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => void onTogglePin(application)}
-              className={`rounded-md p-1 transition ${
+              className={`inline-flex size-8 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-1 ${
                 pinned
                   ? 'text-amber-600 hover:bg-amber-50'
-                  : 'text-slate-300 opacity-0 hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 focus:opacity-100'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
               }`}
-              aria-label={pinned ? '取消置顶' : '置顶'}
-              title={pinned ? '取消置顶' : '置顶'}
+              aria-label={pinned ? '取消重点标记' : '标为重点'}
+              title={pinned ? '取消重点标记' : '标为重点'}
             >
-              <Pin className="size-3.5" />
+              <Pin className="size-4" />
             </button>
             <button
               type="button"
-              className="cursor-grab touch-none rounded-md p-1 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing"
+              className="inline-flex size-8 cursor-grab touch-none items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-1 active:cursor-grabbing"
               aria-label={`拖动${fields['公司名称'] || '投递'}卡片`}
               {...listeners}
               {...attributes}
             >
-              <GripVertical className="size-3.5" />
+              <GripVertical className="size-4" />
             </button>
           </div>
         )}
       </div>
 
       <div
-        className={`${compact ? 'mt-1.5' : 'mt-2.5'} flex items-center gap-1.5 text-[11px] font-semibold text-slate-500`}
+        className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"
         title={`最近更新时间：${parseApplicationTime(latestActivityTime)?.toLocaleString('zh-CN') || '未记录'}`}
       >
-        <CalendarClock className="size-3 shrink-0 text-cyan-700" />
         <span className="text-slate-400">更新</span>
         <LiveUpdateTime value={latestActivityTime} />
       </div>
@@ -1020,47 +1057,33 @@ function ApplicationCard({
         />
       )}
 
-      {compact && !overlay && (
+      <div
+        className="mt-2.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400"
+        title={formatLocations(fields['工作地区']) || '地区未填写'}
+      >
+        <MapPin className="size-3 shrink-0" />
+        <span className="truncate">
+          {formatLocations(fields['工作地区']) || '地区未填写'}
+        </span>
+      </div>
+      <div className="mt-2 min-h-9 rounded-lg bg-slate-50/80 px-2 py-1.5 text-[11px] leading-[18px] text-slate-600">
+        <span className="block text-[10px] font-bold text-slate-400">
+          下一步
+        </span>
         <InlineFieldEditor
           label="下一步安排"
           value={fields['下一步安排']}
-          emptyText="添加下一步"
+          emptyText="暂未安排"
           disabled={saving}
-          triggerClassName="mt-1.5 w-full text-[11px] font-semibold text-cyan-800"
+          triggerClassName="w-full font-semibold text-slate-700"
           onSave={(value: string) =>
             onUpdate(application, { 下一步安排: value })
           }
         />
-      )}
-
-      {!compact && (
-        <>
-          <div className="mt-2.5 flex items-center gap-1 truncate text-[11px] text-slate-400">
-            <MapPin className="size-3 shrink-0" />
-            {formatLocations(fields['工作地区']) || '地区未填写'}
-          </div>
-          <div className="mt-2 min-h-9 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] leading-[18px] text-slate-600">
-            <span className="block text-[10px] font-bold text-slate-400">
-              下一步
-            </span>
-            <InlineFieldEditor
-              label="下一步安排"
-              value={fields['下一步安排']}
-              emptyText="暂未安排"
-              disabled={saving}
-              triggerClassName="w-full font-semibold text-slate-700"
-              onSave={(value: string) =>
-                onUpdate(application, { 下一步安排: value })
-              }
-            />
-          </div>
-        </>
-      )}
+      </div>
 
       {!overlay && (
-        <div
-          className={`${compact ? 'mt-2' : 'mt-2.5'} flex items-center gap-1.5 border-t border-slate-100 pt-2`}
-        >
+        <div className="mt-2.5 flex items-center gap-1.5 border-t border-slate-100 pt-2">
           <Select
             value={status}
             disabled={saving}
@@ -1095,78 +1118,16 @@ function ApplicationCard({
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  tone: 'cyan' | 'sky' | 'violet' | 'emerald';
-}) {
-  const toneStyles: Record<
-    'cyan' | 'sky' | 'violet' | 'emerald',
-    { glow: string; icon: string; value: string }
-  > = {
-    cyan: {
-      glow: 'from-cyan-300/20 to-cyan-100/[0.03]',
-      icon: 'bg-cyan-300/20 text-cyan-100 ring-cyan-200/20',
-      value: 'text-cyan-50',
-    },
-    sky: {
-      glow: 'from-sky-300/20 to-sky-100/[0.03]',
-      icon: 'bg-sky-300/20 text-sky-100 ring-sky-200/20',
-      value: 'text-sky-50',
-    },
-    violet: {
-      glow: 'from-violet-300/20 to-violet-100/[0.03]',
-      icon: 'bg-violet-300/20 text-violet-100 ring-violet-200/20',
-      value: 'text-violet-50',
-    },
-    emerald: {
-      glow: 'from-emerald-300/20 to-emerald-100/[0.03]',
-      icon: 'bg-emerald-300/20 text-emerald-100 ring-emerald-200/20',
-      value: 'text-emerald-50',
-    },
-  };
-  const styles = toneStyles[tone];
-
-  return (
-    <div
-      className={`relative min-w-[104px] overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${styles.glow} px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_30px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-semibold tracking-[0.04em] text-slate-200">
-          {label}
-        </span>
-        <span
-          className={`flex size-6 items-center justify-center rounded-lg ring-1 ${styles.icon} [&>svg]:size-3.5`}
-          aria-hidden="true"
-        >
-          {icon}
-        </span>
-      </div>
-      <div
-        className={`mt-1 text-2xl font-black leading-none tracking-[-0.035em] tabular-nums ${styles.value}`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function BoardSkeleton() {
   return (
     <div className="space-y-4" aria-label="正在加载投递看板">
-      <div className="h-36 animate-pulse rounded-3xl bg-slate-900" />
-      <div className="h-16 animate-pulse rounded-2xl bg-slate-200" />
-      <div className="grid min-w-[1240px] grid-cols-5 gap-2.5 rounded-3xl bg-slate-100 p-3">
+      <div className="glass-panel h-20 animate-pulse" />
+      <div className="h-16 animate-pulse rounded-xl bg-slate-200/70" />
+      <div className="grid min-w-[1240px] grid-cols-5 gap-2.5 rounded-2xl bg-slate-100/70 p-3">
         {[1, 2, 3, 4, 5].map((item: number) => (
           <div
             key={item}
-            className="h-[620px] animate-pulse rounded-2xl bg-white"
+            className="h-[620px] animate-pulse rounded-xl bg-white/80"
           />
         ))}
       </div>

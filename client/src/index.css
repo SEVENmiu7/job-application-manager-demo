@@ -7,70 +7,166 @@
 @config "../../tailwind.config.ts";
 
 html {
-  background: #edf5f7;
+  background: #eef2f7;
 }
 
 body {
   margin: 0;
-  color: #102433;
+  color: #1c2733;
   text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: rgba(34, 211, 238, 0.28);
-  color: #082f49;
+  background: rgba(13, 148, 136, 0.22);
+  color: #0f2e2b;
 }
 
-/* 全局表单样式 */
+/* ---------------------------------- */
+/* 设计 tokens：克制型玻璃拟态工作台 */
+/* 圆角体系：小控件 8px / Input·Button 10px */
+/*             普通卡片 12px / 大容器 16px / Drawer 20px */
+/* ---------------------------------- */
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-hairline: rgba(148, 163, 184, 0.28);
+  --glass-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.35);
+  --glass-shadow-lift: 0 20px 44px -26px rgba(15, 23, 42, 0.42);
+  --glass-highlight: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.85),
+    rgba(255, 255, 255, 0)
+  );
+  --focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.16);
+}
+
+/* 全局表单控件：40px 高、10px 圆角、统一 focus ring */
 .form-input {
   width: 100%;
-  min-height: 42px;
-  border: 1px solid #dbe4e8;
-  border-radius: 12px;
-  padding: 9px 13px;
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  padding: 8px 12px;
   font-size: 14px;
   line-height: 1.5;
-  color: #102433;
-  background: #fff;
+  color: #1c2733;
+  background: rgba(255, 255, 255, 0.85);
   outline: none;
+  cursor: pointer;
   transition:
     border-color 0.15s,
-    box-shadow 0.15s;
+    box-shadow 0.15s,
+    background-color 0.15s;
 }
 
 .form-input:hover {
-  border-color: #b7c7ce;
+  border-color: rgba(100, 116, 139, 0.6);
 }
 
 .form-input:focus {
-  border-color: #0891a0;
-  box-shadow: 0 0 0 3px rgba(8, 145, 160, 0.12);
+  border-color: #0d9488;
+  box-shadow: var(--focus-ring);
+  background: #fff;
 }
 
 .form-input::placeholder {
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
+textarea.form-input {
+  cursor: text;
+}
+
+/* 大容器玻璃面：页面 Header、主工作区、Drawer 内容 */
+.glass-panel {
+  position: relative;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 16px;
+  background: var(--glass-bg-strong);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* 细高光线，绝不遮挡交互 */
+.glass-sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-highlight);
+  opacity: 0.35;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+}
+
+/* 普通卡片：12px 圆角、半透明白、细描边、轻阴影 */
+.glass-card {
+  position: relative;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 8px 24px -20px rgba(15, 23, 42, 0.4);
+}
+
+.glass-card-interactive {
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.glass-card-interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    var(--glass-shadow-lift);
+}
+
+/* 玻璃工具栏 */
+.glass-toolbar {
+  border: 1px solid var(--glass-hairline);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+
+/* 兼容旧类名：历史页面统一收敛到新视觉 */
 .ui-page-header {
-  border: 1px solid rgba(203, 213, 225, 0.78);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 20px 50px -38px rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--glass-hairline);
+  border-radius: 16px;
+  background: var(--glass-bg-strong);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(14px) saturate(150%);
 }
 
 .ui-surface {
-  border: 1px solid rgba(203, 213, 225, 0.78);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 46px -38px rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--glass-hairline);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 30px -24px rgba(15, 23, 42, 0.4);
 }
 
 .application-filter-bar {
-  background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(16px) saturate(160%);
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .glass-panel,
+  .glass-toolbar,
+  .ui-page-header,
   .application-filter-bar {
     background: #fff;
     backdrop-filter: none;
@@ -78,6 +174,10 @@ body {
 }
 
 @media (prefers-contrast: more) {
+  .glass-panel,
+  .glass-card,
+  .glass-toolbar,
+  .ui-page-header,
   .application-filter-bar {
     border-color: #64748b;
     background: rgba(255, 255, 255, 0.98);

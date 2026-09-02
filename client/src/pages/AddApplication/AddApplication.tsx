@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Send } from 'lucide-react';
 import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
+import { CompactStepper } from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { LocationMultiSelect } from '@/components/application/LocationMultiSelect';
 import { toUtcTimestamp } from '@/lib/application-time';
 import {
   STATUS_ORDER,
-  LOCATION_OPTIONS,
   INDUSTRY_OPTIONS,
   FUNCTION_OPTIONS,
   CHANNEL_OPTIONS,
@@ -66,6 +71,7 @@ export default function AddApplication() {
   } = useSessionState<FormData>('add-application:form', initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showFullProcess, setShowFullProcess] = useState(false);
 
   const update = (key: keyof FormData, value: any) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -123,7 +129,7 @@ export default function AddApplication() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-[1080px] space-y-5">
       {/* 页面标题 */}
       <div className="ui-page-header flex items-start gap-3 px-4 py-4 sm:items-center sm:gap-4 sm:px-5 sm:py-5">
         <Button
@@ -136,11 +142,11 @@ export default function AddApplication() {
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-teal-700">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-[0.14em] text-teal-700">
             投递档案
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-[28px]">
+          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
             添加投递
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -155,9 +161,17 @@ export default function AddApplication() {
         </div>
       )}
 
+      <CompactStepper
+        steps={[
+          { label: '基本信息' },
+          { label: '进度与时间' },
+          { label: '补充信息' },
+        ]}
+      />
+
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* 基本信息 */}
-        <FormSection title="基本信息">
+        {/* 第一步：基本信息 */}
+        <FormSection step={1} title="基本信息">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="公司名称 *" required>
               <input
@@ -184,7 +198,6 @@ export default function AddApplication() {
               <LocationMultiSelect
                 value={form.工作地区}
                 onChange={(v: string[]) => update('工作地区', v)}
-                options={LOCATION_OPTIONS}
               />
             </FormField>
             <FormField label="所属行业">
@@ -203,10 +216,10 @@ export default function AddApplication() {
                   key={fn}
                   type="button"
                   onClick={() => toggleFunc(fn)}
-                  className={`min-h-9 rounded-lg border px-3 text-sm font-medium transition ${
+                  className={`min-h-9 rounded-lg border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 ${
                     form.职能方向.includes(fn)
                       ? 'border-teal-300 bg-teal-50 text-teal-800 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                      : 'border-slate-200 bg-white/85 text-slate-600 hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >
                   {fn}
@@ -224,8 +237,8 @@ export default function AddApplication() {
           </FormField>
         </FormSection>
 
-        {/* 进度管理 */}
-        <FormSection title="进度管理">
+        {/* 第二步：进度与时间 */}
+        <FormSection step={2} title="进度与时间">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <FormField label="当前进度">
               <Select
@@ -264,61 +277,68 @@ export default function AddApplication() {
               className="form-input"
             />
           </FormField>
-          <FormField label="测评与面试时间">
-            <p className="mb-3 text-xs leading-5 text-slate-500">
-              只填写实际发生或已经约定的节点，后续可在看板和列表中点按修改。
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
-                <label
-                  key={stage}
-                  className="space-y-1.5 text-xs font-semibold text-slate-600"
-                >
-                  <span>{stage}</span>
-                  <input
-                    type="datetime-local"
-                    value={form.流程时间[stage]}
-                    onChange={(event) =>
-                      update('流程时间', {
-                        ...form.流程时间,
-                        [stage]: event.target.value,
-                      })
-                    }
-                    className="form-input"
-                  />
-                </label>
-              ))}
-            </div>
-          </FormField>
+
+          <Collapsible open={showFullProcess} onOpenChange={setShowFullProcess}>
+            <CollapsibleTrigger className="group flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30">
+              展开完整招聘流程（测评、笔试、各轮面试与 Offer 时间）
+              <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <FormField label="各节点时间">
+                <p className="mb-3 text-xs leading-5 text-slate-500">
+                  只填写实际发生或已经约定的节点，后续可在看板和列表中点按修改。
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
+                    <label
+                      key={stage}
+                      className="space-y-1.5 text-xs font-semibold text-slate-600"
+                    >
+                      <span>{stage}</span>
+                      <input
+                        type="datetime-local"
+                        value={form.流程时间[stage]}
+                        onChange={(event) =>
+                          update('流程时间', {
+                            ...form.流程时间,
+                            [stage]: event.target.value,
+                          })
+                        }
+                        className="form-input"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </FormField>
+            </CollapsibleContent>
+          </Collapsible>
         </FormSection>
 
-        {/* 简历 */}
-        <FormSection title="简历">
-          <FormField label="简历标识">
-            <input
-              type="text"
-              value={form.简历标识}
-              onChange={(e) => update('简历标识', e.target.value)}
-              placeholder="如：2025秋-产品-v2"
-              className="form-input"
-            />
-          </FormField>
-          <div className="text-xs text-gray-400 mt-1">
-            简历文件请在保存后在飞书多维表格中上传附件
+        {/* 第三步：补充信息 / 材料与备注 */}
+        <FormSection step={3} title="补充信息 · 材料与备注">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="简历标识">
+              <input
+                type="text"
+                value={form.简历标识}
+                onChange={(e) => update('简历标识', e.target.value)}
+                placeholder="如：2025秋-产品-v2"
+                className="form-input"
+              />
+              <p className="mt-1.5 text-xs text-slate-400">
+                简历文件请在保存后在飞书多维表格中上传附件
+              </p>
+            </FormField>
+            <FormField label="个人备注">
+              <textarea
+                value={form.个人备注}
+                onChange={(e) => update('个人备注', e.target.value)}
+                placeholder="记录你的判断、联系人、沟通情况、面试感受或提醒事项……"
+                rows={4}
+                className="form-input resize-y"
+              />
+            </FormField>
           </div>
-        </FormSection>
-
-        {/* 补充信息 */}
-        <FormSection title="补充信息">
-          <FormField label="个人备注">
-            <textarea
-              value={form.个人备注}
-              onChange={(e) => update('个人备注', e.target.value)}
-              placeholder="记录你的判断、联系人、沟通情况、面试感受或提醒事项……"
-              rows={4}
-              className="form-input resize-y"
-            />
-          </FormField>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <FormField label="岗位职责">
               <textarea
@@ -341,20 +361,25 @@ export default function AddApplication() {
           </div>
         </FormSection>
 
-        {/* 提交 */}
-        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
-          <Button type="submit" disabled={saving} size="lg">
-            <Send className="w-4 h-4" />
-            {saving ? '保存中...' : '保存投递记录'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => navigate('/applications')}
-          >
-            取消
-          </Button>
+        {/* 提交：sticky 操作栏 */}
+        <div className="sticky bottom-4 z-20 rounded-xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-[0_14px_36px_-24px_rgba(15,23,42,0.45)] backdrop-blur-md">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button type="submit" disabled={saving} size="lg">
+              <Send className="w-4 h-4" />
+              {saving ? '保存中...' : '保存投递记录'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => navigate('/applications')}
+            >
+              取消
+            </Button>
+            <span className="hidden text-xs text-slate-400 sm:ml-auto sm:inline">
+              带 * 为必填项
+            </span>
+          </div>
         </div>
       </form>
     </div>
@@ -362,15 +387,20 @@ export default function AddApplication() {
 }
 
 function FormSection({
+  step,
   title,
   children,
 }: {
+  step: number;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="ui-surface p-4 sm:p-5">
-      <h2 className="mb-4 border-b border-slate-100 pb-3 text-[15px] font-bold text-slate-800">
+      <h2 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-semibold text-slate-800">
+        <span className="flex size-6 items-center justify-center rounded-full bg-teal-50 text-xs font-bold text-teal-700">
+          {step}
+        </span>
         {title}
       </h2>
       <div className="space-y-4">{children}</div>
