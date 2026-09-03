@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api';
 import type { ApplicationRecord, ApplicationStats } from '@shared/types';
 
-export function useApplications(filters?: Record<string, string>) {
+export function useApplications(
+  filters?: Record<string, string>,
+  view: 'full' | 'board' = 'full',
+) {
   const [data, setData] = useState<ApplicationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,20 +24,30 @@ export function useApplications(filters?: Record<string, string>) {
   }, []);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
-    api
-      .listApplications(filters)
-      .then((result: ApplicationRecord[]) =>
-        setData(Array.isArray(result) ? result : []),
-      )
+    const request =
+      view === 'board'
+        ? api.listBoardApplications()
+        : api.listApplications(filters);
+    request
+      .then((result: ApplicationRecord[]) => {
+        if (active) setData(Array.isArray(result) ? result : []);
+      })
       .catch((caughtError: unknown) => {
+        if (!active) return;
         const message: string =
           caughtError instanceof Error ? caughtError.message : '未知错误';
         setError(message);
       })
-      .finally(() => setLoading(false));
-  }, [filters, tick]);
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [filters, tick, view]);
 
   return { data, loading, error, refetch, replaceApplication };
 }

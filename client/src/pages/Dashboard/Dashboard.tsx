@@ -44,7 +44,11 @@ import { api } from '@/api';
 import { InlineFieldEditor } from '@/components/application/InlineFieldEditor';
 import { InlineDateTimeEditor } from '@/components/application/InlineDateTimeEditor';
 import { ApplicationProcessTimeline } from '@/components/application/ApplicationProcessTimeline';
-import { PageHeader, SegmentedControl, StatTintCard } from '@/components/page-ui';
+import {
+  PageHeader,
+  SegmentedControl,
+  StatTintCard,
+} from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -237,7 +241,7 @@ function LiveUpdateTime({ value }: { value?: string }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data, loading, error, refetch } = useApplications();
+  const { data, loading, error, refetch } = useApplications(undefined, 'board');
   const [records, setRecords] = useState<ApplicationRecord[] | null>(null);
   const { value: keyword, setValue: setKeyword } = useSessionState<string>(
     'dashboard:keyword',
@@ -319,24 +323,57 @@ export default function Dashboard() {
     setRecords(optimisticApplications);
     setSavingId(recordId);
     try {
-      await Promise.all(
-        changedApplications.map((application: ApplicationRecord) =>
-          api.updateApplication(application.record_id || '', {
-            当前进度: getApplicationStatus(application),
-            看板顺序: application.fields['看板顺序'],
-          }),
-        ),
+      const previousById: Map<string, ApplicationRecord> = new Map(
+        previousApplications.map((application: ApplicationRecord) => [
+          application.record_id || '',
+          application,
+        ]),
       );
+      const updateResults: PromiseSettledResult<unknown>[] =
+        await Promise.allSettled(
+          changedApplications.flatMap((application: ApplicationRecord) => {
+            const recordId: string = application.record_id || '';
+            const previous: ApplicationRecord | undefined =
+              previousById.get(recordId);
+            if (!recordId || !previous) return [];
+
+            const fields: Partial<ApplicationRecord['fields']> = {};
+            if (
+              getApplicationStatus(application) !==
+              getApplicationStatus(previous)
+            ) {
+              fields['当前进度'] = getApplicationStatus(application);
+            }
+            if (
+              application.fields['看板顺序'] !== previous.fields['看板顺序']
+            ) {
+              fields['看板顺序'] = application.fields['看板顺序'];
+            }
+            return Object.keys(fields).length > 0
+              ? [api.updateApplication(recordId, fields)]
+              : [];
+          }),
+        );
+      const failedUpdate: PromiseRejectedResult | undefined =
+        updateResults.find(
+          (result): result is PromiseRejectedResult =>
+            result.status === 'rejected',
+        );
+      if (failedUpdate) throw failedUpdate.reason;
       try {
         const refreshedApplications: ApplicationRecord[] =
-          await api.listApplications();
+          await api.listBoardApplications();
         setRecords(refreshedApplications);
       } catch {
         // 保存已经成功；回读失败时保留即时更新后的本地数据。
       }
       toast.success(successMessage);
     } catch (caughtError: unknown) {
-      setRecords(previousApplications);
+      try {
+        setRecords(await api.listBoardApplications());
+      } catch {
+        setRecords(previousApplications);
+      }
       const message: string =
         caughtError instanceof Error ? caughtError.message : '未知错误';
       toast.error(`看板更新失败：${message}`);
@@ -421,7 +458,7 @@ export default function Dashboard() {
       await api.updateApplication(recordId, fields);
       try {
         const refreshedApplications: ApplicationRecord[] =
-          await api.listApplications();
+          await api.listBoardApplications();
         setRecords(refreshedApplications);
       } catch {
         // 保存已经成功；回读失败时保留即时更新后的本地数据。
@@ -655,8 +692,16 @@ export default function Dashboard() {
             }}
             ariaLabel="切换视图"
             options={[
-              { value: 'board', label: '看板', icon: <LayoutGrid className="size-3.5" /> },
-              { value: 'list', label: '列表', icon: <List className="size-3.5" /> },
+              {
+                value: 'board',
+                label: '看板',
+                icon: <LayoutGrid className="size-3.5" />,
+              },
+              {
+                value: 'list',
+                label: '列表',
+                icon: <List className="size-3.5" />,
+              },
             ]}
           />
         </div>
@@ -912,13 +957,13 @@ function StageColumn({
 
         {regularApplications.length === 0 &&
           pinnedApplications.length === 0 && (
-              <div
-                  className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
-                    isOver
-                      ? 'border-teal-400 bg-teal-50/80 font-bold text-teal-800'
-                      : 'border-slate-200 text-slate-400'
-                  }`}
-                >
+            <div
+              className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
+                isOver
+                  ? 'border-teal-400 bg-teal-50/80 font-bold text-teal-800'
+                  : 'border-slate-200 text-slate-400'
+              }`}
+            >
               {isOver ? `松开后移至${group.label}` : '暂无投递，拖到这里'}
             </div>
           )}

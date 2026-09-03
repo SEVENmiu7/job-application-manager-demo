@@ -54,6 +54,9 @@ export const api = {
   listApplications: (filters?: Record<string, string>) => {
     return request<ApplicationRecord[]>('/applications', { params: filters });
   },
+  listBoardApplications: () => {
+    return request<ApplicationRecord[]>('/applications/board');
+  },
   getApplication: (id: string) =>
     request<ApplicationRecord | null>(`/applications/${id}`),
   createApplication: (fields: Record<string, unknown>) =>

@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DRIZZLE_DATABASE } from '@lark-apaas/fullstack-nestjs-core';
-import { and, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 
 import { applications } from '@server/database/schema';
@@ -91,6 +91,55 @@ export class ApplicationService {
         任职要求: row.jobRequirements || '',
         看板顺序: row.boardOrder,
         简历标识: row.resumeTag || '',
+      },
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }));
+  }
+
+  async listBoard(userId: string) {
+    const selectRows = () =>
+      this.db
+        .select({
+          id: applications.id,
+          company: applications.company,
+          position: applications.position,
+          location: applications.location,
+          industry: applications.industry,
+          applyTime: applications.applyTime,
+          processTimes: applications.processTimes,
+          status: applications.status,
+          nextStep: applications.nextStep,
+          boardOrder: applications.boardOrder,
+          createdAt: applications.createdAt,
+          updatedAt: applications.updatedAt,
+        })
+        .from(applications)
+        .where(eq(applications.userId, userId))
+        .orderBy(desc(applications.updatedAt));
+
+    let rows = await selectRows();
+    if (rows.length === 0) {
+      await this.ensureDemoData(userId);
+      rows = await selectRows();
+    }
+
+    return rows.map((row) => ({
+      record_id: row.id,
+      fields: {
+        公司名称: row.company,
+        岗位名称: row.position,
+        工作地区: this.parseLocations(row.location),
+        所属行业: row.industry || '',
+        职能方向: [],
+        招聘渠道: '',
+        投递时间: serializeStoredTimestamp(row.applyTime),
+        流程时间: this.parseProcessTimes(row.processTimes),
+        当前进度: row.status || '收藏',
+        下一步安排: row.nextStep || '',
+        个人备注: '',
+        看板顺序: row.boardOrder,
+        简历标识: '',
       },
       created_at: row.createdAt,
       updated_at: row.updatedAt,
@@ -256,13 +305,26 @@ export class ApplicationService {
   }
 
   async stats(userId: string) {
-    const rows = await this.list(userId);
-    const total: number = rows.length;
+    const selectRows = () =>
+      this.db
+        .select({ status: applications.status, count: count() })
+        .from(applications)
+        .where(eq(applications.userId, userId))
+        .groupBy(applications.status);
+    let rows: { status: string | null; count: number }[] = await selectRows();
+    if (rows.length === 0) {
+      await this.ensureDemoData(userId);
+      rows = await selectRows();
+    }
+    const total: number = rows.reduce(
+      (sum: number, row: { count: number }) => sum + row.count,
+      0,
+    );
     const statusCount: Record<string, number> = {};
 
     for (const row of rows) {
-      const status: string = row.fields['当前进度'] || '收藏';
-      statusCount[status] = (statusCount[status] || 0) + 1;
+      const status: string = row.status || '收藏';
+      statusCount[status] = (statusCount[status] || 0) + row.count;
     }
 
     const statusOrder: string[] = [

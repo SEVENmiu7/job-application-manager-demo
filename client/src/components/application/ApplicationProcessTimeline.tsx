@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CalendarClock, Check, LoaderCircle, Milestone, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,21 @@ interface ApplicationProcessTimelineProps {
 }
 
 const EMPTY_PROCESS_TIMES: ApplicationProcessTimes = {};
+const EMPTY_PROCESS_DRAFT: Record<ApplicationProcessStage, string> =
+  Object.fromEntries(
+    PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [stage, '']),
+  ) as Record<ApplicationProcessStage, string>;
+
+function createProcessDraft(
+  processTimes: ApplicationProcessTimes,
+): Record<ApplicationProcessStage, string> {
+  return Object.fromEntries(
+    PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
+      stage,
+      toDatetimeLocalValue(processTimes[stage]),
+    ]),
+  ) as Record<ApplicationProcessStage, string>;
+}
 
 export function ApplicationProcessTimeline({
   value,
@@ -40,28 +55,8 @@ export function ApplicationProcessTimeline({
   const processTimes: ApplicationProcessTimes = value || EMPTY_PROCESS_TIMES;
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [draft, setDraft] = useState<Record<ApplicationProcessStage, string>>(
-    () =>
-      Object.fromEntries(
-        PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
-          stage,
-          toDatetimeLocalValue(processTimes[stage]),
-        ]),
-      ) as Record<ApplicationProcessStage, string>,
-  );
-
-  useEffect(() => {
-    if (!open) {
-      setDraft(
-        Object.fromEntries(
-          PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
-            stage,
-            toDatetimeLocalValue(processTimes[stage]),
-          ]),
-        ) as Record<ApplicationProcessStage, string>,
-      );
-    }
-  }, [open, processTimes]);
+  const [draft, setDraft] =
+    useState<Record<ApplicationProcessStage, string>>(EMPTY_PROCESS_DRAFT);
 
   const recordedStages: ApplicationProcessStage[] = useMemo(
     () =>
@@ -97,7 +92,11 @@ export function ApplicationProcessTimeline({
   return (
     <Popover
       open={open}
-      onOpenChange={(next: boolean) => !saving && setOpen(next)}
+      onOpenChange={(next: boolean) => {
+        if (saving) return;
+        if (next) setDraft(createProcessDraft(processTimes));
+        setOpen(next);
+      }}
     >
       <PopoverTrigger asChild>
         <button

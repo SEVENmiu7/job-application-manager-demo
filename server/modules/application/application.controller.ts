@@ -50,6 +50,13 @@ export class ApplicationController {
   }
 
   @NeedLogin()
+  @Get('board')
+  async board(@Req() req: Request) {
+    const userId: string = req.userContext.userId;
+    return this.applicationService.listBoard(userId);
+  }
+
+  @NeedLogin()
   @Get(':id')
   async get(@Req() req: Request, @Param('id') id: string) {
     const userId: string = req.userContext.userId;
