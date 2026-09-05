@@ -311,15 +311,15 @@ export default function Scraping() {
       <header className="ui-page-header space-y-2 px-5 py-4 sm:px-6">
         <Badge
           variant="secondary"
-          className="gap-1.5 rounded-lg border border-teal-100 bg-teal-50 text-teal-700"
+          className="gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary"
         >
           <Sparkles className="size-3.5" />
           AI 辅助整理
         </Badge>
-        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
           岗位采集
         </h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-500">
+        <p className="max-w-2xl text-sm leading-6 text-foreground-muted">
           读取公开招聘页面，或粘贴岗位文本。识别结果由你确认后再保存。
         </p>
       </header>
@@ -345,7 +345,7 @@ export default function Scraping() {
       </section>
 
       <section className="ui-surface p-4 sm:p-5">
-        <div className="border-b border-slate-100 pb-4">
+        <div className="border-b border-border pb-4">
           <SegmentedControl
             value={mode}
             onChange={(next: SourceMode) => setMode(next)}
@@ -385,17 +385,17 @@ export default function Scraping() {
                   读取并识别
                 </Button>
               </div>
-              <p className="text-xs leading-5 text-slate-500">
+              <p className="text-xs leading-5 text-foreground-muted">
                 适合公司官网等公开页面。需要登录或有访问限制时，请改用粘贴文本。
               </p>
             </div>
 
             <div>
-              <div className="mb-2 text-[13px] font-semibold text-slate-500">
+              <div className="mb-2 text-[13px] font-semibold text-foreground-muted">
                 常用招聘平台
               </div>
               {platformsLoading && (
-                <div className="text-sm text-slate-400">正在加载……</div>
+                <div className="text-sm text-foreground-muted">正在加载……</div>
               )}
               {platformsError && (
                 <div className="text-sm text-red-600">{platformsError}</div>
@@ -404,15 +404,15 @@ export default function Scraping() {
                 {platforms.map((platform: Platform) => (
                   <div
                     key={platform.id}
-                    className="rounded-lg border border-slate-200/70 bg-white/60 p-2.5 transition hover:border-teal-200 hover:bg-white/90"
+                    className="rounded-lg border border-border bg-surface-elevated p-2.5 transition hover:border-primary/40 hover:bg-surface-elevated/90"
                   >
                     <div className="flex items-center gap-2">
-                      <Building2 className="size-3.5 shrink-0 text-slate-400" />
-                      <div className="truncate text-[13px] font-semibold text-slate-700">
+                      <Building2 className="size-3.5 shrink-0 text-foreground-muted" />
+                      <div className="truncate text-[13px] font-semibold text-foreground-secondary">
                         {platform.name}
                       </div>
                     </div>
-                    <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
+                    <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-foreground-muted">
                       {platform.description}
                     </div>
                     {platform.url && (
@@ -430,7 +430,7 @@ export default function Scraping() {
                           href={platform.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex min-h-7 items-center gap-1 px-1 text-xs font-semibold text-teal-700 hover:text-teal-900"
+                          className="inline-flex min-h-7 items-center gap-1 px-1 text-xs font-semibold text-primary hover:text-primary-hover"
                         >
                           打开 <ExternalLink className="size-3" />
                         </a>
@@ -453,7 +453,7 @@ export default function Scraping() {
               disabled={isProcessing}
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-foreground-muted">
                 已输入 {jobText.trim().length} 个字
               </span>
               <Button
@@ -508,7 +508,7 @@ export default function Scraping() {
               )}
               {STAGE_COPY[stage]}
             </div>
-            <span className="text-xs font-semibold text-teal-700">
+            <span className="text-xs font-semibold text-primary">
               {progress}%
             </span>
           </div>

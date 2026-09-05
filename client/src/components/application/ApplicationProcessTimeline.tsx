@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Check, LoaderCircle, Milestone, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -29,21 +29,6 @@ interface ApplicationProcessTimelineProps {
 }
 
 const EMPTY_PROCESS_TIMES: ApplicationProcessTimes = {};
-const EMPTY_PROCESS_DRAFT: Record<ApplicationProcessStage, string> =
-  Object.fromEntries(
-    PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [stage, '']),
-  ) as Record<ApplicationProcessStage, string>;
-
-function createProcessDraft(
-  processTimes: ApplicationProcessTimes,
-): Record<ApplicationProcessStage, string> {
-  return Object.fromEntries(
-    PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
-      stage,
-      toDatetimeLocalValue(processTimes[stage]),
-    ]),
-  ) as Record<ApplicationProcessStage, string>;
-}
 
 export function ApplicationProcessTimeline({
   value,
@@ -55,8 +40,28 @@ export function ApplicationProcessTimeline({
   const processTimes: ApplicationProcessTimes = value || EMPTY_PROCESS_TIMES;
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [draft, setDraft] =
-    useState<Record<ApplicationProcessStage, string>>(EMPTY_PROCESS_DRAFT);
+  const [draft, setDraft] = useState<Record<ApplicationProcessStage, string>>(
+    () =>
+      Object.fromEntries(
+        PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
+          stage,
+          toDatetimeLocalValue(processTimes[stage]),
+        ]),
+      ) as Record<ApplicationProcessStage, string>,
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setDraft(
+        Object.fromEntries(
+          PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
+            stage,
+            toDatetimeLocalValue(processTimes[stage]),
+          ]),
+        ) as Record<ApplicationProcessStage, string>,
+      );
+    }
+  }, [open, processTimes]);
 
   const recordedStages: ApplicationProcessStage[] = useMemo(
     () =>
@@ -92,21 +97,17 @@ export function ApplicationProcessTimeline({
   return (
     <Popover
       open={open}
-      onOpenChange={(next: boolean) => {
-        if (saving) return;
-        if (next) setDraft(createProcessDraft(processTimes));
-        setOpen(next);
-      }}
+      onOpenChange={(next: boolean) => !saving && setOpen(next)}
     >
       <PopoverTrigger asChild>
         <button
           type="button"
           disabled={disabled}
           className={cn(
-            'inline-flex min-w-0 items-center gap-1.5 rounded-md text-left text-xs text-slate-500 transition hover:text-cyan-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:opacity-60',
+            'inline-flex min-w-0 items-center gap-1.5 rounded-md text-left text-xs text-foreground-muted transition hover:text-cyan-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
             compact
               ? 'max-w-full'
-              : 'rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2',
+              : 'rounded-lg border border-border bg-surface-muted px-2.5 py-2',
           )}
           aria-label="编辑流程时间"
           title="单击记录测评与各轮面试时间"
@@ -123,14 +124,14 @@ export function ApplicationProcessTimeline({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[min(92vw,430px)] rounded-2xl border-slate-200 p-0 shadow-2xl"
+        className="w-[min(92vw,430px)] rounded-2xl border-border p-0 shadow-2xl"
       >
-        <div className="border-b border-slate-100 px-4 py-3">
-          <div className="flex items-center gap-2 font-bold text-slate-900">
+        <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2 font-bold text-foreground">
             <CalendarClock className="size-4 text-cyan-700" />
             流程时间轴
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
+          <p className="mt-1 text-xs leading-5 text-foreground-muted">
             只记录实际发生或已约定的节点；手动时间始终保留为基准。
           </p>
         </div>
@@ -141,11 +142,11 @@ export function ApplicationProcessTimeline({
                 key={stage}
                 className="grid grid-cols-[72px_1fr] items-center gap-3"
               >
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <div className="flex items-center gap-2 text-xs font-semibold text-foreground-secondary">
                   <span
                     className={cn(
                       'size-2 rounded-full',
-                      draft[stage] ? 'bg-cyan-600' : 'bg-slate-200',
+                      draft[stage] ? 'bg-cyan-600' : 'bg-surface-muted',
                     )}
                   />
                   {stage}
@@ -167,8 +168,8 @@ export function ApplicationProcessTimeline({
             ),
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-          <span className="text-[11px] text-slate-400">
+        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+          <span className="text-[11px] text-foreground-muted">
             Asia/Shanghai · UTC+8
           </span>
           <div className="flex gap-1.5">

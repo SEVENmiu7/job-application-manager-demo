@@ -13,6 +13,29 @@
       console.error('Failed to parse __platform__', e);
     }
   </script>
+  <script>
+    // 首屏渲染前应用已保存主题，避免亮色闪现（FOUC）。
+    // 键名与 ThemeProvider 约定一致：外观 qz-theme / 配色 qz-accent。
+    (function () {
+      var mode = 'system', accent = 'original';
+      try {
+        mode = localStorage.getItem('qz-theme') || 'system';
+        accent = localStorage.getItem('qz-accent') || 'original';
+        if (['system', 'light', 'dark'].indexOf(mode) < 0) {
+          mode = 'system';
+          localStorage.removeItem('qz-theme');
+        }
+      } catch (e) { /* Resolve system even when storage is unavailable. */ }
+      var dark = mode === 'dark' ||
+        (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var root = document.documentElement;
+      root.classList.remove('light', 'dark');
+      root.classList.add(dark ? 'dark' : 'light');
+      root.style.colorScheme = dark ? 'dark' : 'light';
+      root.setAttribute('data-accent',
+        ['original', 'jade', 'ocean', 'indigo', 'graphite'].indexOf(accent) >= 0 ? accent : 'original');
+    })();
+  </script>
 </head>
 
 <body>

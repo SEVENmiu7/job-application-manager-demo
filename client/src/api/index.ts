@@ -5,6 +5,12 @@ import type {
   ApplicationStats,
   Platform,
 } from '@shared/types';
+import type {
+  InterviewReview,
+  InterviewReviewListResponse,
+  InterviewReviewMutationResponse,
+  InterviewReviewSavePayload,
+} from '@shared/api.interface';
 
 type BackendRequestConfig = Omit<AxiosRequestConfig, 'url'>;
 
@@ -72,6 +78,30 @@ export const api = {
   deleteApplication: (id: string) =>
     request<boolean>(`/applications/${id}`, { method: 'DELETE' }),
   getStats: () => request<ApplicationStats>('/applications/stats'),
+  listInterviewReviews: (applicationId: string) =>
+    request<InterviewReviewListResponse>('/interview-reviews', {
+      params: { applicationId },
+    }).then((result: InterviewReviewListResponse) => result.items || []),
+  createInterviewReview: (
+    applicationId: string,
+    review: InterviewReviewSavePayload,
+  ) =>
+    request<InterviewReviewMutationResponse>('/interview-reviews', {
+      method: 'POST',
+      data: { applicationId, review },
+    }).then((result: InterviewReviewMutationResponse) => result.review),
+  updateInterviewReview: (
+    reviewId: string,
+    review: InterviewReviewSavePayload,
+  ) =>
+    request<InterviewReviewMutationResponse>(`/interview-reviews/${reviewId}`, {
+      method: 'PUT',
+      data: { review },
+    }).then((result: InterviewReviewMutationResponse) => result.review),
+  deleteInterviewReview: (reviewId: string) =>
+    request<boolean>(`/interview-reviews/${reviewId}`, {
+      method: 'DELETE',
+    }),
   getPlatforms: async (): Promise<Platform[]> => {
     const response: PlatformListResponse = await request<PlatformListResponse>(
       '/scraping/platforms',

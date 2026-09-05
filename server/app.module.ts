@@ -5,6 +5,7 @@ import { PlatformModule } from '@lark-apaas/fullstack-nestjs-core';
 import { GlobalExceptionFilter } from './common/filters/exception.filter';
 import { ViewModule } from './modules/view/view.module';
 import { ApplicationModule } from './modules/application/application.module';
+import { InterviewReviewModule } from './modules/interview-review/interview-review.module';
 import { ScrapingModule } from './modules/scraping/scraping.module';
 import { DebugController } from './modules/debug/debug.controller';
 
@@ -14,6 +15,7 @@ import { DebugController } from './modules/debug/debug.controller';
     PlatformModule.forRoot(),
     // ====== @route-section: business-modules START ======
     ApplicationModule,
+    InterviewReviewModule,
     ScrapingModule,
     // ====== @route-section: business-modules END ======
 

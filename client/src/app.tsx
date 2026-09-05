@@ -1,9 +1,9 @@
 import React, { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard/Dashboard';
 
 const NotFound = lazy(() => import('./pages/NotFound/NotFound'));
-const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const ApplicationList = lazy(
   () => import('./pages/ApplicationList/ApplicationList'),
 );
@@ -15,36 +15,46 @@ const EditApplication = lazy(
 );
 const Scraping = lazy(() => import('./pages/Scraping/Scraping'));
 
-function PageLoadingFallback() {
+const RoutesComponent = () => {
+  return (
+    <>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route
+            path="applications"
+            element={<LazyPage component={<ApplicationList />} />}
+          />
+          <Route
+            path="applications/new"
+            element={<LazyPage component={<AddApplication />} />}
+          />
+          <Route
+            path="applications/edit/:id"
+            element={<LazyPage component={<EditApplication />} />}
+          />
+          <Route
+            path="scraping"
+            element={<LazyPage component={<Scraping />} />}
+          />
+        </Route>
+        <Route path="*" element={<LazyPage component={<NotFound />} />} />
+      </Routes>
+    </>
+  );
+};
+
+function LazyPage({ component }: { component: React.ReactNode }) {
+  return <Suspense fallback={<RouteLoadingFallback />}>{component}</Suspense>;
+}
+
+function RouteLoadingFallback() {
   return (
     <div
-      className="h-28 animate-pulse rounded-2xl bg-slate-200/70"
-      role="status"
-      aria-label="页面加载中"
+      className="mx-auto h-28 w-[min(92vw,720px)] animate-pulse rounded-2xl bg-slate-200/70"
+      aria-label="正在加载页面"
     />
   );
 }
-
-function loadPage(page: React.ReactNode) {
-  return <Suspense fallback={<PageLoadingFallback />}>{page}</Suspense>;
-}
-
-const RoutesComponent = () => {
-  return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={loadPage(<Dashboard />)} />
-        <Route path="applications" element={loadPage(<ApplicationList />)} />
-        <Route path="applications/new" element={loadPage(<AddApplication />)} />
-        <Route
-          path="applications/edit/:id"
-          element={loadPage(<EditApplication />)}
-        />
-        <Route path="scraping" element={loadPage(<Scraping />)} />
-      </Route>
-      <Route path="*" element={loadPage(<NotFound />)} />
-    </Routes>
-  );
-};
 
 export default RoutesComponent;

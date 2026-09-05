@@ -32,10 +32,10 @@ export default function ScrapingResult({
 }: ScrapingResultProps) {
   return (
     <section className="ui-surface space-y-5 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-950">校对识别结果</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-lg font-bold text-foreground">校对识别结果</h2>
+          <p className="mt-1 text-sm text-foreground-muted">
             可直接修改。公司名称和岗位名称为必填项。
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function ScrapingResult({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
         <Button
           type="button"
           size="lg"
@@ -149,7 +149,7 @@ export default function ScrapingResult({
           )}
           保存到投递列表
         </Button>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-foreground-muted">
           默认进度为“收藏”，保存后可在列表中继续编辑。
         </span>
       </div>

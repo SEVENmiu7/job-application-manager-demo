@@ -76,10 +76,10 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
           role="combobox"
           aria-expanded={open}
           aria-label="选择工作地区"
-          className="flex min-h-[40px] w-full cursor-pointer items-center gap-1.5 rounded-[10px] border border-slate-300/60 bg-white/85 px-2.5 py-1.5 text-left text-sm transition hover:border-slate-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-teal-500/20 data-[state=open]:border-teal-500 data-[state=open]:ring-[3px] data-[state=open]:ring-teal-500/20"
+          className="flex min-h-[40px] w-full cursor-pointer items-center gap-1.5 rounded-[10px] border border-border-strong bg-surface-elevated px-2.5 py-1.5 text-left text-sm transition hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-primary data-[state=open]:ring-2 data-[state=open]:ring-ring"
         >
           {value.length === 0 ? (
-            <span className="flex flex-1 items-center gap-1.5 text-slate-400">
+            <span className="flex flex-1 items-center gap-1.5 text-foreground-muted">
               <MapPin className="size-3.5" />
               选择工作地区（可多选，支持自定义）
             </span>
@@ -88,7 +88,7 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
               {value.map((location: string) => (
                 <span
                   key={location}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800"
+                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-primary bg-primary-soft px-1.5 py-0.5 text-xs font-medium text-primary"
                 >
                   <span className="max-w-[120px] truncate">{location}</span>
                   <X
@@ -103,16 +103,17 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
               ))}
             </span>
           )}
-          <ChevronsUpDown className="size-3.5 shrink-0 text-slate-400" />
+          <ChevronsUpDown className="size-3.5 shrink-0 text-foreground-muted" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[min(92vw,460px)] rounded-2xl border-slate-200 p-0"
+        collisionPadding={12}
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[min(92vw,460px)] flex-col overflow-hidden rounded-2xl border-border p-0"
       >
-        <div className="border-b border-slate-100 p-3">
+        <div className="shrink-0 border-b border-border p-3">
           <div className="relative">
-            <MapPin className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+            <MapPin className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-foreground-muted" />
             <input
               value={keyword}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -125,7 +126,7 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
                 }
               }}
               placeholder="搜索城市，或输入新城市后回车"
-              className="h-9 w-full rounded-[10px] border border-slate-200 bg-slate-50 pl-8 pr-3 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-[3px] focus:ring-teal-500/20"
+              className="h-9 w-full rounded-[10px] border border-border bg-surface-muted pl-8 pr-3 text-sm outline-none transition focus:border-primary focus:bg-surface-elevated focus:ring-2 focus:ring-ring"
             />
           </div>
           {canAddCustom && (
@@ -142,15 +143,15 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
           )}
         </div>
 
-        <div className="max-h-[320px] overflow-y-auto p-3 [scrollbar-width:thin]">
+        <div className="min-h-0 max-h-[320px] overflow-y-auto p-3 [scrollbar-width:thin]">
           {filteredGroups.length === 0 && !canAddCustom && (
-            <p className="py-6 text-center text-sm text-slate-400">
+            <p className="py-6 text-center text-sm text-foreground-muted">
               没有匹配的城市，可回车直接添加
             </p>
           )}
           {filteredGroups.map((group: LocationGroup) => (
             <section key={group.region} className="mb-3 last:mb-0">
-              <p className="mb-1.5 text-[11px] font-bold tracking-wide text-slate-400">
+              <p className="mb-1.5 text-[11px] font-bold tracking-wide text-foreground-muted">
                 {group.region}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -165,11 +166,11 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
                       aria-pressed={selected}
                       onClick={() => toggle(city)}
                       className={cn(
-                        'inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg border px-2.5 text-[13px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30',
+                        'inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg border px-2.5 text-[13px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         dimmed && 'opacity-40',
                         selected
-                          ? 'border-teal-300 bg-teal-50 text-teal-800'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900',
+                          ? 'border-primary bg-primary-soft text-primary'
+                          : 'border-border bg-surface-elevated text-foreground-secondary hover:border-border-strong hover:bg-surface-muted hover:text-foreground',
                       )}
                     >
                       {selected && <Check className="size-3" />}
@@ -182,8 +183,8 @@ export function LocationMultiSelect({ value, onChange }: LocationMultiSelectProp
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
-          <span className="text-[11px] text-slate-400">
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-3 py-2">
+          <span className="text-[11px] text-foreground-muted">
             已选 {value.length} 个地区
           </span>
           {value.length > 0 && (

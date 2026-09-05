@@ -12,11 +12,11 @@ export interface ApplicationStatusTheme {
 const STATUS_FAMILY_STYLES: Record<string, ApplicationStatusTheme> = {
   slate: {
     dot: 'bg-slate-400',
-    badge: 'border-slate-200 bg-slate-100/80 text-slate-700',
+    badge: 'border-border bg-surface-muted text-foreground-secondary',
     rail: 'from-slate-400 via-slate-300',
-    drop: 'border-slate-400 bg-slate-100/80',
+    drop: 'border-border-strong bg-surface-muted',
     cardGlow: 'from-slate-300/55',
-    quick: 'border-slate-200 bg-slate-50 text-slate-700',
+    quick: 'border-border bg-surface-muted text-foreground-secondary',
   },
   blue: {
     dot: 'bg-blue-500',

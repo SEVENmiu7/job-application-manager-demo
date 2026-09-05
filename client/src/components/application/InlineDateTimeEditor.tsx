@@ -66,7 +66,7 @@ export function InlineDateTimeEditor({
           type="button"
           disabled={disabled}
           className={cn(
-            'group/time inline-flex min-w-0 items-center gap-1.5 rounded-md text-left outline-none transition hover:text-cyan-900 focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:opacity-60',
+            'group/time inline-flex min-w-0 items-center gap-1.5 rounded-md text-left outline-none transition hover:text-cyan-900 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
             triggerClassName,
           )}
           aria-label={`编辑${label}`}
@@ -83,9 +83,9 @@ export function InlineDateTimeEditor({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-80 rounded-xl border-slate-200 p-3 shadow-xl"
+        className="w-80 rounded-xl border-border p-3 shadow-xl"
       >
-        <div className="mb-2 text-xs font-bold text-slate-500">编辑{label}</div>
+        <div className="mb-2 text-xs font-bold text-foreground-muted">编辑{label}</div>
         <Input
           autoFocus
           type="datetime-local"
@@ -94,7 +94,7 @@ export function InlineDateTimeEditor({
             setDraft(event.target.value)
           }
         />
-        <p className="mt-2 text-[11px] leading-4 text-slate-400">
+        <p className="mt-2 text-[11px] leading-4 text-foreground-muted">
           按中国标准时间（UTC+8）保存。清空后可删除该时间。
         </p>
         <div className="mt-3 flex justify-end gap-1.5">

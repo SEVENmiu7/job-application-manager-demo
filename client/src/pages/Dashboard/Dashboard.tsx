@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   closestCorners,
@@ -31,12 +31,14 @@ import {
   LayoutGrid,
   List,
   MapPin,
+  NotebookPen,
   Pin,
   Plus,
   RefreshCw,
   Search,
   Send,
   Target,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -77,7 +79,19 @@ import {
   formatRelativeApplicationTime,
   parseApplicationTime,
 } from '@/lib/application-time';
-import type { ApplicationRecord, StatusGroup } from '../../../../shared/types';
+import { getCurrentStageTime, getLatestInterviewStage } from '@/lib/stage-time';
+import { cn } from '@/lib/utils';
+import type {
+  ApplicationProcessStage,
+  ApplicationRecord,
+  StatusGroup,
+} from '../../../../shared/types';
+import type { InterviewReview } from '@shared/api.interface';
+import {
+  StageColumnControls,
+  type StageSortKey,
+  type StageViewSettings,
+} from './StageColumnControls';
 import {
   formatLocations,
   hasEnteredApplicationStage,
@@ -88,10 +102,38 @@ import {
 const GROUP_PREFIX = 'group:';
 const BOARD_ORDER_STEP = 1000;
 const MAX_PINNED_PER_GROUP = 3;
+const DEFAULT_STAGE_VIEW_SETTINGS: StageViewSettings = {
+  pinnedOnly: false,
+  sortKey: 'manual',
+};
+const STAGE_SORT_KEYS: StageSortKey[] = [
+  'manual',
+  'applied-desc',
+  'applied-asc',
+  'stage-desc',
+  'stage-asc',
+  'company-desc',
+  'company-asc',
+];
+
+const InterviewReviewDialog = lazy(() =>
+  import('@/components/review/InterviewReviewDialog').then((module) => ({
+    default: module.InterviewReviewDialog,
+  })),
+);
 
 interface PendingStageMove {
   application: ApplicationRecord;
   targetGroup: StatusGroup;
+}
+
+interface ReviewDialogState {
+  applicationId: string;
+  company: string;
+  position: string;
+  stage: string;
+  interviewTime?: string;
+  review?: InterviewReview | null;
 }
 
 // 列语义色：准备=Slate 已投递=Blue 测评=Purple 面试=Cyan 结果=Green
@@ -101,10 +143,10 @@ const STAGE_STYLES: Record<
   { dot: string; line: string; soft: string; column: string }
 > = {
   prepare: {
-    dot: 'bg-slate-400',
-    line: 'bg-slate-300',
-    soft: 'bg-slate-100 text-slate-600',
-    column: 'bg-slate-100/45',
+    dot: 'bg-surface-muted',
+    line: 'bg-surface-muted',
+    soft: 'bg-surface-muted text-foreground-secondary',
+    column: 'bg-surface-muted',
   },
   apply: {
     dot: 'bg-blue-500',
@@ -178,6 +220,66 @@ function getOrderedGroup(
     });
 }
 
+function getApplicationTimestamp(
+  application: ApplicationRecord,
+  sortKey: StageSortKey,
+): number {
+  if (sortKey.startsWith('applied-')) {
+    return parseApplicationTime(application.fields['投递时间'])?.getTime() || 0;
+  }
+  return getCurrentStageTime(application.fields).timestamp;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStageSortKey(value: unknown): value is StageSortKey {
+  return (
+    typeof value === 'string' &&
+    STAGE_SORT_KEYS.some((sortKey: StageSortKey) => sortKey === value)
+  );
+}
+
+function getStageViewSettings(
+  storedSettings: unknown,
+  groupKey: string,
+): StageViewSettings {
+  if (!isRecord(storedSettings)) return DEFAULT_STAGE_VIEW_SETTINGS;
+  const groupSettings: unknown = storedSettings[groupKey];
+  if (!isRecord(groupSettings)) return DEFAULT_STAGE_VIEW_SETTINGS;
+  return {
+    pinnedOnly: groupSettings.pinnedOnly === true,
+    sortKey: isStageSortKey(groupSettings.sortKey)
+      ? groupSettings.sortKey
+      : 'manual',
+  };
+}
+
+function sortStageApplications(
+  applications: ApplicationRecord[],
+  sortKey: StageSortKey,
+): ApplicationRecord[] {
+  if (sortKey === 'manual') return applications;
+  return [...applications].sort(
+    (left: ApplicationRecord, right: ApplicationRecord) => {
+      if (isPinned(left) !== isPinned(right)) return isPinned(left) ? -1 : 1;
+      if (sortKey.startsWith('company-')) {
+        const difference: number = (
+          left.fields['公司名称'] || ''
+        ).localeCompare(right.fields['公司名称'] || '', 'zh-CN');
+        return sortKey === 'company-asc' ? difference : -difference;
+      }
+      const leftTimestamp: number = getApplicationTimestamp(left, sortKey);
+      const rightTimestamp: number = getApplicationTimestamp(right, sortKey);
+      if (leftTimestamp === 0 && rightTimestamp !== 0) return 1;
+      if (rightTimestamp === 0 && leftTimestamp !== 0) return -1;
+      const difference: number = leftTimestamp - rightTimestamp;
+      return sortKey.endsWith('-asc') ? difference : -difference;
+    },
+  );
+}
+
 function normalizeGroupOrder(
   applications: ApplicationRecord[],
 ): ApplicationRecord[] {
@@ -233,7 +335,7 @@ function LiveUpdateTime({ value }: { value?: string }) {
   }, []);
 
   return (
-    <time className="truncate text-slate-700">
+    <time className="truncate text-foreground-secondary">
       {formatRelativeApplicationTime(value, now)}
     </time>
   );
@@ -241,16 +343,25 @@ function LiveUpdateTime({ value }: { value?: string }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data, loading, error, refetch } = useApplications(undefined, 'board');
+  const { data, loading, error, refetch } = useApplications();
   const [records, setRecords] = useState<ApplicationRecord[] | null>(null);
   const { value: keyword, setValue: setKeyword } = useSessionState<string>(
     'dashboard:keyword',
     '',
   );
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [pendingStageMove, setPendingStageMove] =
     useState<PendingStageMove | null>(null);
+  const [reviewDialog, setReviewDialog] = useState<ReviewDialogState | null>(
+    null,
+  );
+  const { value: stageViewSettings, setValue: setStageViewSettings } =
+    useSessionState<unknown>('dashboard:stage-view-settings', {});
+  useEffect(() => {
+    setRecords(data);
+  }, [data]);
 
   const applications: ApplicationRecord[] = records ?? data;
   const normalizedKeyword: string = keyword.trim().toLocaleLowerCase('zh-CN');
@@ -296,14 +407,74 @@ export default function Dashboard() {
     '三面',
     'HR面',
   ].reduce((sum: number, status: string) => sum + (counts[status] || 0), 0);
+  const reviewCounts: Record<string, number> = useMemo(
+    () =>
+      Object.fromEntries(
+        applications
+          .filter((item: ApplicationRecord) => Boolean(item.record_id))
+          .map((item: ApplicationRecord) => [
+            item.record_id || '',
+            item.review_count || 0,
+          ]),
+      ),
+    [applications],
+  );
+
+  const openReviewFor = async (
+    application: ApplicationRecord,
+    stage: string,
+  ): Promise<void> => {
+    const recordId: string | undefined = application.record_id;
+    if (!recordId) return;
+    let matched: InterviewReview | null = null;
+    try {
+      const reviews: InterviewReview[] =
+        await api.listInterviewReviews(recordId);
+      matched =
+        reviews.find((review: InterviewReview) => review.stage === stage) ||
+        null;
+    } catch {
+      matched = null;
+    }
+    setReviewDialog({
+      applicationId: recordId,
+      company: application.fields['公司名称'] || '',
+      position: application.fields['岗位名称'] || '',
+      stage,
+      interviewTime:
+        application.fields['流程时间']?.[stage as ApplicationProcessStage],
+      review: matched,
+    });
+  };
+
   const activeApplication: ApplicationRecord | undefined = applications.find(
     (item: ApplicationRecord) => item.record_id === activeId,
   );
+
+  const updateStageViewSettings = (
+    groupKey: string,
+    settings: StageViewSettings,
+  ): void => {
+    setStageViewSettings((current: unknown) => {
+      const normalizedCurrent: Record<string, unknown> = isRecord(current)
+        ? current
+        : {};
+      return {
+        ...normalizedCurrent,
+        [groupKey]: settings,
+      };
+    });
+  };
 
   const refreshBoard = () => {
     setRecords(null);
     refetch();
     toast.success('看板已刷新');
+  };
+
+  const clearSearch = (): void => {
+    setKeyword('');
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const persistChanges = async (
@@ -329,51 +500,50 @@ export default function Dashboard() {
           application,
         ]),
       );
-      const updateResults: PromiseSettledResult<unknown>[] =
-        await Promise.allSettled(
-          changedApplications.flatMap((application: ApplicationRecord) => {
-            const recordId: string = application.record_id || '';
-            const previous: ApplicationRecord | undefined =
-              previousById.get(recordId);
-            if (!recordId || !previous) return [];
-
-            const fields: Partial<ApplicationRecord['fields']> = {};
-            if (
-              getApplicationStatus(application) !==
-              getApplicationStatus(previous)
-            ) {
-              fields['当前进度'] = getApplicationStatus(application);
-            }
-            if (
-              application.fields['看板顺序'] !== previous.fields['看板顺序']
-            ) {
-              fields['看板顺序'] = application.fields['看板顺序'];
-            }
-            return Object.keys(fields).length > 0
-              ? [api.updateApplication(recordId, fields)]
-              : [];
-          }),
-        );
-      const failedUpdate: PromiseRejectedResult | undefined =
-        updateResults.find(
-          (result): result is PromiseRejectedResult =>
-            result.status === 'rejected',
-        );
-      if (failedUpdate) throw failedUpdate.reason;
+      await Promise.all(
+        changedApplications.flatMap((application: ApplicationRecord) => {
+          const previous: ApplicationRecord | undefined = previousById.get(
+            application.record_id || '',
+          );
+          const changedFields: Partial<ApplicationRecord['fields']> = {};
+          if (
+            !previous ||
+            getApplicationStatus(previous) !== getApplicationStatus(application)
+          ) {
+            changedFields['当前进度'] = getApplicationStatus(application);
+          }
+          if (
+            !previous ||
+            previous.fields['看板顺序'] !== application.fields['看板顺序']
+          ) {
+            changedFields['看板顺序'] = application.fields['看板顺序'];
+          }
+          if (
+            !previous ||
+            previous.fields['投递时间'] !== application.fields['投递时间']
+          ) {
+            changedFields['投递时间'] = application.fields['投递时间'];
+          }
+          return Object.keys(changedFields).length > 0
+            ? [
+                api.updateApplication(
+                  application.record_id || '',
+                  changedFields,
+                ),
+              ]
+            : [];
+        }),
+      );
       try {
         const refreshedApplications: ApplicationRecord[] =
-          await api.listBoardApplications();
+          await api.listApplications();
         setRecords(refreshedApplications);
       } catch {
         // 保存已经成功；回读失败时保留即时更新后的本地数据。
       }
       toast.success(successMessage);
     } catch (caughtError: unknown) {
-      try {
-        setRecords(await api.listBoardApplications());
-      } catch {
-        setRecords(previousApplications);
-      }
+      setRecords(previousApplications);
       const message: string =
         caughtError instanceof Error ? caughtError.message : '未知错误';
       toast.error(`看板更新失败：${message}`);
@@ -434,6 +604,16 @@ export default function Dashboard() {
         ? `已推进至${nextStatus}，投递时间已自动记为现在`
         : `已推进至${nextStatus}`,
     );
+    // 非阻断提示：记录面试节点后提醒复盘，不打断保存
+    if (['AI面试', '一面', '二面', '三面', 'HR面'].includes(nextStatus)) {
+      toast.message(`已记录${nextStatus}`, {
+        description: '可以花两分钟复盘这场面试',
+        action: {
+          label: '去复盘',
+          onClick: () => void openReviewFor(application, nextStatus),
+        },
+      });
+    }
   };
 
   const quickUpdateApplication = async (
@@ -458,7 +638,7 @@ export default function Dashboard() {
       await api.updateApplication(recordId, fields);
       try {
         const refreshedApplications: ApplicationRecord[] =
-          await api.listBoardApplications();
+          await api.listApplications();
         setRecords(refreshedApplications);
       } catch {
         // 保存已经成功；回读失败时保留即时更新后的本地数据。
@@ -660,19 +840,39 @@ export default function Dashboard() {
 
       <section className="glass-toolbar flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative min-w-0 flex-1 lg:max-w-md">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground-muted" />
           <Input
+            ref={searchInputRef}
             value={keyword}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
               setKeyword(event.target.value)
             }
+            onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+              if (event.key === 'Escape' && keyword) {
+                event.preventDefault();
+                clearSearch();
+              }
+            }}
             placeholder="搜索公司、岗位、地区或行业"
-            className="h-10 border-slate-200/80 bg-white/70 pl-9 shadow-none"
+            className="h-10 border-border bg-surface-elevated/70 pl-9 pr-11 shadow-none"
           />
+          {keyword && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 text-foreground-muted shadow-none hover:bg-transparent hover:text-foreground-secondary"
+              onClick={clearSearch}
+              aria-label="清除搜索内容"
+              title="清除搜索（Esc）"
+            >
+              <X />
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs text-slate-500">
-            {keyword
+          <span className="mr-1 text-xs text-foreground-muted" aria-live="polite">
+            {normalizedKeyword
               ? `找到 ${visibleApplications.length} 条`
               : '每列最多标记 3 条重点，重点投递优先排列'}
           </span>
@@ -714,23 +914,50 @@ export default function Dashboard() {
         onDragCancel={() => setActiveId(null)}
         onDragEnd={handleDragEnd}
       >
-        <section className="overflow-x-auto rounded-2xl border border-slate-200/70 bg-white/40 p-3 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.4)] backdrop-blur-sm [scrollbar-color:#94a3b8_transparent] [scrollbar-width:thin]">
-          <div className="grid min-w-[1240px] grid-cols-5 gap-2.5">
-            {STATUS_GROUPS.map((group: StatusGroup) => (
-              <StageColumn
-                key={group.key}
-                group={group}
-                applications={getOrderedGroup(visibleApplications, group)}
-                totalCount={group.statuses.reduce(
-                  (sum: number, status: string) => sum + (counts[status] || 0),
-                  0,
-                )}
-                savingId={savingId}
-                onMove={changeApplicationStatus}
-                onTogglePin={togglePin}
-                onUpdate={quickUpdateApplication}
-              />
-            ))}
+        <section className="overflow-x-auto rounded-2xl border border-border bg-surface-elevated/40 p-3 shadow-[var(--shadow)] backdrop-blur-sm [scrollbar-color:var(--scrollbar)_transparent] [scrollbar-width:thin]">
+          <div className="grid min-w-[1120px] grid-cols-5 gap-2.5">
+            {STATUS_GROUPS.map((group: StatusGroup) => {
+              const settings: StageViewSettings = getStageViewSettings(
+                stageViewSettings,
+                group.key,
+              );
+              const orderedApplications: ApplicationRecord[] = getOrderedGroup(
+                visibleApplications,
+                group,
+              );
+              const filteredApplications: ApplicationRecord[] =
+                settings.pinnedOnly
+                  ? orderedApplications.filter(isPinned)
+                  : orderedApplications;
+              return (
+                <StageColumn
+                  key={group.key}
+                  group={group}
+                  applications={sortStageApplications(
+                    filteredApplications,
+                    settings.sortKey,
+                  )}
+                  totalCount={group.statuses.reduce(
+                    (sum: number, status: string) =>
+                      sum + (counts[status] || 0),
+                    0,
+                  )}
+                  settings={settings}
+                  onSettingsChange={(nextSettings: StageViewSettings) =>
+                    updateStageViewSettings(group.key, nextSettings)
+                  }
+                  savingId={savingId}
+                  onMove={changeApplicationStatus}
+                  onTogglePin={togglePin}
+                  onUpdate={quickUpdateApplication}
+                  reviewCounts={reviewCounts}
+                  onOpenReview={(
+                    application: ApplicationRecord,
+                    stage: string,
+                  ) => void openReviewFor(application, stage)}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -750,12 +977,12 @@ export default function Dashboard() {
       </DndContext>
 
       {applications.length === 0 && (
-        <section className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center backdrop-blur-sm">
-          <Target className="mx-auto size-10 text-teal-700" />
-          <h2 className="mt-4 text-xl font-bold text-slate-950">
+        <section className="rounded-2xl border border-dashed border-border-strong bg-surface-elevated/60 px-6 py-12 text-center backdrop-blur-sm">
+          <Target className="mx-auto size-10 text-primary" />
+          <h2 className="mt-4 text-xl font-bold text-foreground">
             从第一张卡片开始
           </h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-foreground-secondary">
             添加投递后，就能在这里拖动卡片推进求职进度。
           </p>
           <Button asChild className="mt-5">
@@ -811,6 +1038,24 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {reviewDialog && (
+        <Suspense fallback={null}>
+          <InterviewReviewDialog
+            open={Boolean(reviewDialog)}
+            onOpenChange={(open: boolean) => {
+              if (!open) setReviewDialog(null);
+            }}
+            applicationId={reviewDialog.applicationId}
+            company={reviewDialog.company}
+            position={reviewDialog.position}
+            stage={reviewDialog.stage}
+            interviewTime={reviewDialog.interviewTime}
+            review={reviewDialog.review}
+            onSaved={() => undefined}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -819,14 +1064,20 @@ function StageColumn({
   group,
   applications,
   totalCount,
+  settings,
+  onSettingsChange,
   savingId,
   onMove,
   onTogglePin,
   onUpdate,
+  reviewCounts,
+  onOpenReview,
 }: {
   group: StatusGroup;
   applications: ApplicationRecord[];
   totalCount: number;
+  settings: StageViewSettings;
+  onSettingsChange: (settings: StageViewSettings) => void;
   savingId: string | null;
   onMove: (application: ApplicationRecord, status: string) => Promise<void>;
   onTogglePin: (application: ApplicationRecord) => Promise<void>;
@@ -834,9 +1085,14 @@ function StageColumn({
     application: ApplicationRecord,
     fields: Partial<ApplicationRecord['fields']>,
   ) => Promise<boolean>;
+  reviewCounts: Record<string, number>;
+  onOpenReview: (application: ApplicationRecord, stage: string) => void;
 }) {
+  const dragDisabled: boolean =
+    settings.pinnedOnly || settings.sortKey !== 'manual';
   const { isOver, setNodeRef } = useDroppable({
     id: `${GROUP_PREFIX}${group.key}`,
+    disabled: dragDisabled,
   });
   const style = STAGE_STYLES[group.key] || STAGE_STYLES.prepare;
   const pinnedApplications: ApplicationRecord[] = applications.filter(isPinned);
@@ -849,17 +1105,17 @@ function StageColumn({
       ref={setNodeRef}
       className={`relative flex h-[620px] min-w-0 flex-col overflow-hidden rounded-xl border transition ${
         isOver
-          ? 'border-teal-400 ring-2 ring-teal-200/70'
-          : 'border-slate-200/80'
+          ? 'border-teal-400 ring-2 ring-ring'
+          : 'border-border'
       } ${style.column}`}
     >
       <div className={`h-0.5 shrink-0 ${style.line}`} />
-      <header className="shrink-0 border-b border-white/70 bg-white/55 px-3.5 py-2.5 backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-2">
+      <header className="shrink-0 border-b border-white/10 bg-surface-elevated/55 px-3.5 py-2.5 backdrop-blur-sm">
+        <div className="flex min-h-8 items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className={`size-2 rounded-full ${style.dot}`} />
-              <h2 className="text-sm font-black text-slate-950">
+              <h2 className="text-sm font-black text-foreground">
                 {group.label}
               </h2>
               <span
@@ -868,21 +1124,28 @@ function StageColumn({
                 {totalCount}
               </span>
             </div>
-            <p className="mt-1 truncate text-[11px] text-slate-400">
+            <p className="mt-1 truncate text-[11px] text-foreground-muted">
               {group.description}
             </p>
           </div>
-          <Link
-            to="/applications/new"
-            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
-            aria-label={`在${group.label}阶段添加投递`}
-          >
-            <Plus className="size-4" />
-          </Link>
+          <div className="flex h-8 shrink-0 items-center gap-1">
+            <StageColumnControls
+              groupLabel={group.label}
+              settings={settings}
+              onChange={onSettingsChange}
+            />
+            <Link
+              to="/applications/new"
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-transparent text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`在${group.label}阶段添加投递`}
+            >
+              <Plus className="size-3.5" strokeWidth={1.9} />
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 [scrollbar-color:#cbd5e1_transparent] [scrollbar-width:thin]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 [scrollbar-color:var(--scrollbar)_transparent] [scrollbar-width:thin]">
         {pinnedApplications.length > 0 && (
           <section aria-label="重点跟进">
             <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] font-bold text-amber-800">
@@ -906,9 +1169,14 @@ function StageColumn({
                     key={application.record_id}
                     application={application}
                     saving={savingId === application.record_id}
+                    dragDisabled={dragDisabled}
                     onMove={onMove}
                     onTogglePin={onTogglePin}
                     onUpdate={onUpdate}
+                    reviewCount={reviewCounts[application.record_id || ''] || 0}
+                    onOpenReview={(stage: string) =>
+                      onOpenReview(application, stage)
+                    }
                   />
                 ))}
               </div>
@@ -921,14 +1189,14 @@ function StageColumn({
             aria-label="其他投递"
             className={
               pinnedApplications.length > 0
-                ? 'mt-3 border-t border-slate-200 pt-2'
+                ? 'mt-3 border-t border-border pt-2'
                 : undefined
             }
           >
             {pinnedApplications.length > 0 && (
-              <div className="mb-2 flex items-center justify-between px-1 text-[10px] font-bold tracking-[0.12em] text-slate-500">
+              <div className="mb-2 flex items-center justify-between px-1 text-[10px] font-bold tracking-[0.12em] text-foreground-muted">
                 <span>其他投递</span>
-                <span className="tracking-normal text-slate-400">
+                <span className="tracking-normal text-foreground-muted">
                   {regularApplications.length}
                 </span>
               </div>
@@ -945,9 +1213,14 @@ function StageColumn({
                     key={application.record_id}
                     application={application}
                     saving={savingId === application.record_id}
+                    dragDisabled={dragDisabled}
                     onMove={onMove}
                     onTogglePin={onTogglePin}
                     onUpdate={onUpdate}
+                    reviewCount={reviewCounts[application.record_id || ''] || 0}
+                    onOpenReview={(stage: string) =>
+                      onOpenReview(application, stage)
+                    }
                   />
                 ))}
               </div>
@@ -961,10 +1234,14 @@ function StageColumn({
               className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
                 isOver
                   ? 'border-teal-400 bg-teal-50/80 font-bold text-teal-800'
-                  : 'border-slate-200 text-slate-400'
+                  : 'border-border text-foreground-muted'
               }`}
             >
-              {isOver ? `松开后移至${group.label}` : '暂无投递，拖到这里'}
+              {isOver
+                ? `松开后移至${group.label}`
+                : settings.pinnedOnly
+                  ? '暂无重点投递'
+                  : '暂无投递，拖到这里'}
             </div>
           )}
       </div>
@@ -976,19 +1253,25 @@ function ApplicationCard({
   application,
   saving = false,
   overlay = false,
+  dragDisabled = false,
   onMove,
   onTogglePin,
   onUpdate,
+  reviewCount = 0,
+  onOpenReview,
 }: {
   application: ApplicationRecord;
   saving?: boolean;
   overlay?: boolean;
+  dragDisabled?: boolean;
   onMove: (application: ApplicationRecord, status: string) => Promise<void>;
   onTogglePin: (application: ApplicationRecord) => Promise<void>;
   onUpdate: (
     application: ApplicationRecord,
     fields: Partial<ApplicationRecord['fields']>,
   ) => Promise<boolean>;
+  reviewCount?: number;
+  onOpenReview?: (stage: string) => void;
 }) {
   const recordId: string = application.record_id || '';
   const fields: ApplicationRecord['fields'] = application.fields;
@@ -1006,31 +1289,35 @@ function ApplicationCard({
     isDragging,
   } = useSortable({
     id: recordId,
-    disabled: !recordId || saving || overlay,
+    disabled: !recordId || saving || overlay || dragDisabled,
   });
-  const cardStyle = transform
-    ? { transform: CSS.Transform.toString(transform), transition }
-    : { transition };
+  const cardStyle = {
+    ...(transform
+      ? { transform: CSS.Transform.toString(transform), transition }
+      : { transition }),
+    contentVisibility: 'auto',
+    containIntrinsicSize: 'auto 260px',
+  } as React.CSSProperties;
 
   return (
     <article
       ref={setNodeRef}
       style={cardStyle}
-      className={`group relative rounded-xl border bg-white/85 p-3 backdrop-blur-[2px] transition ${
+      className={`group relative rounded-xl border bg-surface-elevated/85 p-3 backdrop-blur-[2px] transition ${
         pinned
-          ? 'border-amber-200 shadow-[0_8px_22px_-18px_rgba(180,83,9,0.5)]'
-          : 'border-slate-200/85 shadow-[0_6px_18px_-16px_rgba(15,23,42,0.4)]'
+          ? 'border-amber-200 shadow-[var(--shadow)]'
+          : 'border-border shadow-[var(--shadow)]'
       } ${
         isDragging
           ? 'opacity-25'
-          : 'hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)]'
+          : 'hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[var(--shadow)]'
       } ${saving ? 'animate-pulse' : ''}`}
     >
       <div className="flex items-start gap-1.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className={`size-1.5 shrink-0 rounded-full ${theme.dot}`} />
-            <span className="truncate text-[10px] font-bold text-slate-400">
+            <span className="truncate text-[10px] font-bold text-foreground-muted">
               {status}
             </span>
             {pinned && (
@@ -1039,10 +1326,10 @@ function ApplicationCard({
               </span>
             )}
           </div>
-          <h3 className="mt-1.5 truncate text-sm font-black text-slate-950">
+          <h3 className="mt-1.5 truncate text-sm font-black text-foreground">
             {fields['公司名称'] || '未命名公司'}
           </h3>
-          <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+          <p className="mt-0.5 truncate text-xs font-medium text-foreground-muted">
             {fields['岗位名称'] || '未命名岗位'}
           </p>
         </div>
@@ -1051,10 +1338,10 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => void onTogglePin(application)}
-              className={`inline-flex size-8 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-1 ${
+              className={`inline-flex size-8 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                 pinned
                   ? 'text-amber-600 hover:bg-amber-50'
-                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                  : 'text-foreground-muted hover:bg-surface-muted hover:text-foreground-secondary'
               }`}
               aria-label={pinned ? '取消重点标记' : '标为重点'}
               title={pinned ? '取消重点标记' : '标为重点'}
@@ -1063,8 +1350,16 @@ function ApplicationCard({
             </button>
             <button
               type="button"
-              className="inline-flex size-8 cursor-grab touch-none items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-1 active:cursor-grabbing"
-              aria-label={`拖动${fields['公司名称'] || '投递'}卡片`}
+              disabled={dragDisabled}
+              className="inline-flex size-8 cursor-grab touch-none items-center justify-center rounded-lg text-foreground-muted transition hover:bg-surface-muted hover:text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label={
+                dragDisabled
+                  ? '恢复默认筛选和排序后可拖动卡片'
+                  : `拖动${fields['公司名称'] || '投递'}卡片`
+              }
+              title={
+                dragDisabled ? '恢复默认筛选和排序后可拖动卡片' : undefined
+              }
               {...listeners}
               {...attributes}
             >
@@ -1075,10 +1370,10 @@ function ApplicationCard({
       </div>
 
       <div
-        className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500"
+        className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-foreground-muted"
         title={`最近更新时间：${parseApplicationTime(latestActivityTime)?.toLocaleString('zh-CN') || '未记录'}`}
       >
-        <span className="text-slate-400">更新</span>
+        <span className="text-foreground-muted">更新</span>
         <LiveUpdateTime value={latestActivityTime} />
       </div>
       {!overlay && hasEnteredApplicationStage(status) && (
@@ -1087,7 +1382,7 @@ function ApplicationCard({
           value={fields['投递时间']}
           emptyText="补充投递时间"
           disabled={saving}
-          triggerClassName="mt-1 pl-[18px] text-[10px] text-slate-400"
+          triggerClassName="mt-1 pl-[18px] text-[10px] text-foreground-muted"
           onSave={(value: string) => onUpdate(application, { 投递时间: value })}
         />
       )}
@@ -1101,9 +1396,30 @@ function ApplicationCard({
           onSave={(value) => onUpdate(application, { 流程时间: value })}
         />
       )}
+      {!overlay &&
+        (() => {
+          const reviewContext = getLatestInterviewStage(fields);
+          if (!reviewContext || !onOpenReview) return null;
+          return (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => onOpenReview(reviewContext.stage)}
+              className={cn(
+                'mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
+                reviewCount > 0
+                  ? 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-200/30 dark:bg-teal-50/10 dark:text-teal-700'
+                  : 'border-primary/40 bg-primary/10 text-primary',
+              )}
+            >
+              <NotebookPen className="size-3" />
+              {reviewCount > 0 ? '已复盘' : '待复盘'}
+            </button>
+          );
+        })()}
 
       <div
-        className="mt-2.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400"
+        className="mt-2.5 flex min-w-0 items-center gap-1 text-[11px] text-foreground-muted"
         title={formatLocations(fields['工作地区']) || '地区未填写'}
       >
         <MapPin className="size-3 shrink-0" />
@@ -1111,8 +1427,8 @@ function ApplicationCard({
           {formatLocations(fields['工作地区']) || '地区未填写'}
         </span>
       </div>
-      <div className="mt-2 min-h-9 rounded-lg bg-slate-50/80 px-2 py-1.5 text-[11px] leading-[18px] text-slate-600">
-        <span className="block text-[10px] font-bold text-slate-400">
+      <div className="mt-2 min-h-9 rounded-lg bg-surface-muted px-2 py-1.5 text-[11px] leading-[18px] text-foreground-secondary">
+        <span className="block text-[10px] font-bold text-foreground-muted">
           下一步
         </span>
         <InlineFieldEditor
@@ -1120,7 +1436,7 @@ function ApplicationCard({
           value={fields['下一步安排']}
           emptyText="暂未安排"
           disabled={saving}
-          triggerClassName="w-full font-semibold text-slate-700"
+          triggerClassName="w-full font-semibold text-foreground-secondary"
           onSave={(value: string) =>
             onUpdate(application, { 下一步安排: value })
           }
@@ -1128,7 +1444,7 @@ function ApplicationCard({
       </div>
 
       {!overlay && (
-        <div className="mt-2.5 flex items-center gap-1.5 border-t border-slate-100 pt-2">
+        <div className="mt-2.5 flex items-center gap-1.5 border-t border-border pt-2">
           <Select
             value={status}
             disabled={saving}
@@ -1137,7 +1453,7 @@ function ApplicationCard({
             }
           >
             <SelectTrigger
-              className="h-7 min-w-0 flex-1 border-slate-200 bg-white px-2 text-[11px] font-bold shadow-none"
+              className="h-7 min-w-0 flex-1 border-border bg-surface-elevated px-2 text-[11px] font-bold shadow-none"
               aria-label="更改投递进度"
             >
               <SelectValue />
@@ -1152,7 +1468,7 @@ function ApplicationCard({
           </Select>
           <Link
             to={`/applications/edit/${recordId}`}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-md p-1.5 text-foreground-muted transition hover:bg-surface-muted hover:text-foreground"
             aria-label="打开投递详情"
           >
             <ExternalLink className="size-3.5" />
@@ -1167,12 +1483,12 @@ function BoardSkeleton() {
   return (
     <div className="space-y-4" aria-label="正在加载投递看板">
       <div className="glass-panel h-20 animate-pulse" />
-      <div className="h-16 animate-pulse rounded-xl bg-slate-200/70" />
-      <div className="grid min-w-[1240px] grid-cols-5 gap-2.5 rounded-2xl bg-slate-100/70 p-3">
+      <div className="h-16 animate-pulse rounded-xl bg-surface-muted" />
+      <div className="grid min-w-[1120px] grid-cols-5 gap-2.5 rounded-2xl bg-surface-muted p-3">
         {[1, 2, 3, 4, 5].map((item: number) => (
           <div
             key={item}
-            className="h-[620px] animate-pulse rounded-xl bg-white/80"
+            className="h-[620px] animate-pulse rounded-xl bg-surface-elevated/80"
           />
         ))}
       </div>

@@ -17,6 +17,7 @@ interface PageHeaderProps {
   description?: ReactNode;
   actions?: ReactNode;
 }
+
 export function PageHeader({
   eyebrow,
   title,
@@ -29,15 +30,15 @@ export function PageHeader({
       <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-xs font-semibold tracking-[0.14em] text-teal-700">
+            <p className="text-xs font-semibold tracking-[0.14em] text-primary">
               {eyebrow}
             </p>
           )}
-          <h1 className="mt-0.5 truncate text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
+          <h1 className="mt-0.5 truncate text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
             {title}
           </h1>
           {description && (
-            <p className="mt-1 text-sm text-slate-500">{description}</p>
+            <p className="mt-1 text-sm text-foreground-muted">{description}</p>
           )}
         </div>
         {actions && (
@@ -54,8 +55,8 @@ type TintTone = 'slate' | 'blue' | 'purple' | 'teal' | 'green' | 'red';
 
 const TINT_STYLES: Record<TintTone, { surface: string; icon: string }> = {
   slate: {
-    surface: 'border-slate-200/70 bg-slate-50/80',
-    icon: 'bg-slate-100 text-slate-600',
+    surface: 'border-border bg-surface-muted',
+    icon: 'bg-surface-muted text-foreground-secondary',
   },
   blue: {
     surface: 'border-blue-200/60 bg-blue-50/70',
@@ -67,7 +68,7 @@ const TINT_STYLES: Record<TintTone, { surface: string; icon: string }> = {
   },
   teal: {
     surface: 'border-teal-200/60 bg-teal-50/70',
-    icon: 'bg-teal-100 text-teal-600',
+    icon: 'bg-teal-100 text-teal-700',
   },
   green: {
     surface: 'border-emerald-200/60 bg-emerald-50/70',
@@ -112,10 +113,10 @@ export function StatTintCard({
         </span>
       )}
       <div className="min-w-0">
-        <div className="truncate text-xs font-medium text-slate-500">
+        <div className="truncate text-xs font-medium text-foreground-muted">
           {label}
         </div>
-        <div className="text-xl font-bold leading-tight tabular-nums text-slate-900">
+        <div className="text-xl font-bold leading-tight tabular-nums text-foreground">
           {value}
         </div>
       </div>
@@ -142,7 +143,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex items-center gap-0.5 rounded-[10px] border border-slate-200/80 bg-slate-100/70 p-0.5"
+      className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-surface-muted p-0.5"
     >
       {options.map((option) => {
         const active: boolean = option.value === value;
@@ -154,13 +155,13 @@ export function SegmentedControl<T extends string>({
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex cursor-pointer items-center gap-1.5 rounded-lg font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40',
+              'inline-flex cursor-pointer items-center gap-1.5 rounded-lg font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               size === 'sm'
                 ? 'min-h-7 px-2.5 text-xs'
                 : 'min-h-8 px-3 text-[13px]',
               active
-                ? 'bg-white text-slate-900 shadow-[0_2px_8px_-4px_rgba(15,23,42,0.35)]'
-                : 'text-slate-500 hover:bg-white/60 hover:text-slate-800',
+                ? 'bg-surface-elevated text-foreground shadow-[var(--shadow)]'
+                : 'text-foreground-muted hover:bg-surface-elevated/60 hover:text-foreground',
             )}
           >
             {option.icon}
@@ -189,7 +190,7 @@ export function CompactStepper({ steps, activeIndex }: CompactStepperProps) {
               <span
                 className={cn(
                   'mx-2 h-px w-6 sm:w-8',
-                  done ? 'bg-teal-400' : 'bg-slate-200',
+                  done ? 'bg-primary' : 'bg-surface-muted',
                 )}
                 aria-hidden="true"
               />
@@ -199,10 +200,10 @@ export function CompactStepper({ steps, activeIndex }: CompactStepperProps) {
                 className={cn(
                   'flex size-5 items-center justify-center rounded-full text-[11px] font-bold',
                   active
-                    ? 'bg-teal-600 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : done
-                      ? 'bg-teal-100 text-teal-700'
-                      : 'bg-slate-100 text-slate-500',
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-surface-muted text-foreground-muted',
                 )}
               >
                 {index + 1}
@@ -210,13 +211,13 @@ export function CompactStepper({ steps, activeIndex }: CompactStepperProps) {
               <span
                 className={cn(
                   'text-[13px] font-semibold',
-                  active ? 'text-teal-800' : 'text-slate-600',
+                  active ? 'text-primary' : 'text-foreground-secondary',
                 )}
               >
                 {step.label}
               </span>
               {step.hint && (
-                <span className="hidden text-xs text-slate-400 sm:inline">
+                <span className="hidden text-xs text-foreground-muted sm:inline">
                   {step.hint}
                 </span>
               )}
@@ -237,7 +238,7 @@ export function SectionTitle({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-base font-semibold text-slate-800">{children}</h2>
+      <h2 className="text-base font-semibold text-foreground">{children}</h2>
       {action}
     </div>
   );

@@ -6,6 +6,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { AppContainer } from '@lark-apaas/client-toolkit/components/AppContainer';
 import { ErrorRender } from '@lark-apaas/client-toolkit/components/ErrorRender';
 
+import { ThemeProvider } from './components/theme/ThemeProvider';
 import RoutesComponent from './app.tsx';
 import './index.css';
 import { createPortal } from 'react-dom';
@@ -16,7 +17,8 @@ const CLIENT_BASE_PATH = process.env.CLIENT_BASE_PATH || '/';
 const MainApp = () => {
   return (
     <BrowserRouter basename={CLIENT_BASE_PATH}>
-      <AppContainer defaultTheme="light">
+      <ThemeProvider>
+      <AppContainer>
         <ErrorBoundary
           fallbackRender={({ error, resetErrorBoundary }) => (
             <ErrorRender
@@ -29,6 +31,7 @@ const MainApp = () => {
           {createPortal(<Toaster />, document.body)}
         </ErrorBoundary>
       </AppContainer>
+      </ThemeProvider>
     </BrowserRouter>
   );
 };

@@ -10,6 +10,9 @@ import {
   X,
 } from 'lucide-react';
 
+import { AppearanceMenu } from './theme/AppearanceMenu';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useSidebarCollapsed } from '@/hooks/useMediaQuery';
 import './Layout.css';
 
 interface NavigationItem {
@@ -38,11 +41,44 @@ const NAV_ITEMS: NavigationItem[] = [
 
 export default function Layout() {
   const location = useLocation();
+  const sidebarCollapsed: boolean = useSidebarCollapsed();
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  const renderNavItem = (item: NavigationItem) => {
+    const Icon = item.icon;
+    const active: boolean =
+      item.path === '/applications'
+        ? location.pathname === '/applications' ||
+          location.pathname.startsWith('/applications/edit/')
+        : item.exact
+          ? location.pathname === item.path
+          : location.pathname.startsWith(item.path);
+    const link = (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end={item.exact}
+        className={`nav-item ${active ? 'nav-item-active' : ''}`}
+        aria-label={item.label}
+      >
+        <Icon className="nav-icon" />
+        <span className="nav-label">{item.label}</span>
+      </NavLink>
+    );
+    if (sidebarCollapsed) {
+      return (
+        <Tooltip key={item.path}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+    return link;
+  };
 
   return (
     <div className="layout-root">
@@ -77,43 +113,28 @@ export default function Layout() {
       )}
 
       <aside
-        className={`layout-sidebar ${mobileMenuOpen ? 'layout-sidebar-open' : ''}`}
+        className={`layout-sidebar ${mobileMenuOpen ? 'layout-sidebar-open' : ''} ${
+          sidebarCollapsed ? 'layout-sidebar-collapsed' : ''
+        }`}
       >
         <div className="sidebar-header">
           <div className="sidebar-logo" aria-hidden="true">
             <Target />
           </div>
-          <div>
+          <div className="sidebar-brand-text">
             <div className="sidebar-title">求职投递</div>
             <div className="sidebar-subtitle">面试演示版</div>
           </div>
         </div>
 
         <nav className="sidebar-nav" aria-label="主导航">
-          {NAV_ITEMS.map((item: NavigationItem) => {
-            const Icon = item.icon;
-            const active: boolean =
-              item.path === '/applications'
-                ? location.pathname === '/applications' ||
-                  location.pathname.startsWith('/applications/edit/')
-                : item.exact
-                  ? location.pathname === item.path
-                  : location.pathname.startsWith(item.path);
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.exact}
-                className={`nav-item ${active ? 'nav-item-active' : ''}`}
-              >
-                <Icon className="nav-icon" />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
+          {NAV_ITEMS.map((item: NavigationItem) => renderNavItem(item))}
         </nav>
 
         <div className="sidebar-footer">
+          <div className="sidebar-appearance">
+            <AppearanceMenu />
+          </div>
           <div className="demo-sidebar-note">
             <Target aria-hidden="true" />
             <div>

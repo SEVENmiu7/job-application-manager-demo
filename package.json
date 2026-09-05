@@ -174,7 +174,13 @@
     "testMatch": [
       "\u003crootDir\u003e/server/**/*.spec.ts",
       "\u003crootDir\u003e/test/unit/**/*.spec.ts"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/client/src/$1",
+      "^@shared/(.*)$": "<rootDir>/shared/$1",
+      "^@server/(.*)$": "<rootDir>/server/$1",
+      "^@client/(.*)$": "<rootDir>/client/$1"
+    }
   },
   "name": "fullstack-nestjs-template",
   "overrides": {

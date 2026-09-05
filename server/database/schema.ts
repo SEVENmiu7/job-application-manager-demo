@@ -1,7 +1,7 @@
 /* eslint-disable */
 /** auto generated, do not edit */
 import { sql } from 'drizzle-orm';
-import { index, integer, pgTable, text, timestamp, uuid, varchar, customType } from "drizzle-orm/pg-core"
+import { foreignKey, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar, customType } from "drizzle-orm/pg-core"
 
 export const customTimestamptz = customType<{
   data: Date;
@@ -117,6 +117,45 @@ export const fileAttachmentArray = customType<{
   },
 });
 
+export const interviewReviews = pgTable("interview_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  applicationId: uuid("application_id").notNull(),
+  stage: varchar("stage", { length: 64 }).notNull(),
+  interviewTime: timestamp("interview_time", { mode: 'string' }),
+  format: varchar("format", { length: 32 }),
+  interviewer: varchar("interviewer", { length: 255 }),
+  overallFeeling: integer("overall_feeling"),
+  rawNotes: text("raw_notes"),
+  /**
+   * @type InterviewReviewQuestion[]
+   */
+  questions: jsonb("questions"),
+  wentWell: text("went_well"),
+  improvements: text("improvements"),
+  companySignals: text("company_signals"),
+  /**
+   * @type InterviewReviewNextAction[]
+   */
+  nextActions: jsonb("next_actions"),
+  createdAt: timestamp("created_at", { mode: 'string' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  index("idx_interview_reviews_user_id").on(table.userId),
+  index("idx_interview_reviews_application_id").on(table.applicationId),
+  foreignKey({
+    columns: [table.applicationId],
+    foreignColumns: [applications.id],
+    name: "interview_reviews_application_id_fkey",
+  }).onDelete("cascade"),
+]);
+
 export const applications = pgTable("applications", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 64 }).notNull(),
@@ -153,3 +192,4 @@ export const applications = pgTable("applications", {
 
 // table aliases
 export const applicationsTable = applications;
+export const interviewReviewsTable = interviewReviews;

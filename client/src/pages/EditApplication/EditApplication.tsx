@@ -171,7 +171,7 @@ export default function EditApplication() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -190,13 +190,13 @@ export default function EditApplication() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-teal-700">
+          <p className="text-xs font-semibold tracking-[0.14em] text-primary">
             投递档案
           </p>
-          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-slate-900">
+          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
             编辑投递
           </h1>
-          <p className="mt-1 text-sm text-slate-500">更新投递信息与进度</p>
+          <p className="mt-1 text-sm text-foreground-muted">更新投递信息与进度</p>
         </div>
       </div>
 
@@ -261,7 +261,7 @@ export default function EditApplication() {
                   className={`min-h-9 rounded-lg border px-3 text-sm font-medium transition ${
                     form.职能方向.includes(fn)
                       ? 'border-teal-300 bg-teal-50 text-teal-800 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                      : 'border-border bg-surface-elevated text-foreground-secondary hover:border-border-strong hover:text-foreground'
                   }`}
                 >
                   {fn}
@@ -286,7 +286,7 @@ export default function EditApplication() {
                 onChange={(v) => update('当前进度', v)}
                 options={STATUS_ORDER}
               />
-              <p className="mt-1.5 text-xs leading-5 text-slate-500">
+              <p className="mt-1.5 text-xs leading-5 text-foreground-muted">
                 各公司流程不同，可直接选择实际节点，不必按顺序推进。
               </p>
             </FormField>
@@ -317,20 +317,20 @@ export default function EditApplication() {
             />
           </FormField>
           <Collapsible open={showFullProcess} onOpenChange={setShowFullProcess}>
-            <CollapsibleTrigger className="group flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30">
+            <CollapsibleTrigger className="group flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-border bg-surface-muted px-3.5 text-sm font-semibold text-foreground-secondary transition hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               展开完整招聘流程（测评、笔试、各轮面试与 Offer 时间）
               <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent>
               <FormField label="各节点时间">
-                <p className="mb-3 text-xs leading-5 text-slate-500">
+                <p className="mb-3 text-xs leading-5 text-foreground-muted">
                   手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
                 <label
                   key={stage}
-                  className="space-y-1.5 text-xs font-semibold text-slate-600"
+                  className="space-y-1.5 text-xs font-semibold text-foreground-secondary"
                 >
                   <span>{stage}</span>
                   <input
@@ -393,7 +393,7 @@ export default function EditApplication() {
           </div>
         </FormSection>
 
-        <div className="sticky bottom-4 z-20 rounded-xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-[0_14px_36px_-24px_rgba(15,23,42,0.45)] backdrop-blur-md">
+        <div className="sticky bottom-4 z-20 rounded-xl border border-border bg-surface-elevated/90 px-4 py-3 shadow-[var(--shadow)] backdrop-blur-md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button type="submit" disabled={saving} size="lg">
               <Send className="w-4 h-4" />
@@ -424,9 +424,9 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="ui-surface p-4 sm:p-5">
-      <h2 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-semibold text-slate-800">
-        <span className="flex size-6 items-center justify-center rounded-full bg-teal-50 text-xs font-bold text-teal-700">
+    <section className="ui-surface form-section p-4 sm:p-5">
+      <h2 className="mb-4 flex items-center gap-2 border-b border-border pb-3 text-base font-semibold text-foreground">
+        <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {step}
         </span>
         {title}
@@ -445,7 +445,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+      <label className="mb-1.5 block text-sm font-semibold text-foreground-secondary">
         {label}
       </label>
       {children}

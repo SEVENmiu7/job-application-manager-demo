@@ -63,7 +63,7 @@ export function InlineFieldEditor({
           type="button"
           disabled={disabled}
           className={cn(
-            'group/inline flex min-w-0 items-center gap-1.5 rounded-md text-left outline-none transition hover:text-cyan-900 focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-60',
+            'group/inline flex min-w-0 items-center gap-1.5 rounded-md text-left outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
             triggerClassName,
           )}
           aria-label={`编辑${label}`}
@@ -77,7 +77,7 @@ export function InlineFieldEditor({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-80 rounded-xl border-slate-200 p-0 shadow-xl"
+        className="w-80 rounded-xl border-border p-0 shadow-xl"
       >
         <form
           className="p-3"
@@ -87,7 +87,7 @@ export function InlineFieldEditor({
             void save();
           }}
         >
-          <div className="mb-2 text-xs font-bold text-slate-500">
+          <div className="mb-2 text-xs font-bold text-foreground-muted">
             编辑{label}
           </div>
           {multiline ? (
@@ -125,7 +125,7 @@ export function InlineFieldEditor({
             />
           )}
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-foreground-muted">
               {multiline ? 'Ctrl + Enter 保存' : 'Enter 保存'}
             </span>
             <div className="flex gap-1.5">

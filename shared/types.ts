@@ -2,6 +2,8 @@
 
 export interface ApplicationRecord {
   record_id?: string;
+  /** 当前投递下的面试复盘数量。 */
+  review_count?: number;
   fields: {
     公司名称: string;
     岗位名称: string;

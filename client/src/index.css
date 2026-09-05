@@ -7,18 +7,18 @@
 @config "../../tailwind.config.ts";
 
 html {
-  background: #eef2f7;
+  background: var(--app-bg, #eef2f7);
 }
 
 body {
   margin: 0;
-  color: #1c2733;
+  color: var(--foreground, #1c2733);
   text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: rgba(13, 148, 136, 0.22);
-  color: #0f2e2b;
+  background: var(--primary-soft);
+  color: var(--foreground);
 }
 
 /* ---------------------------------- */
@@ -28,31 +28,27 @@ body {
 /* ---------------------------------- */
 
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-bg-strong: rgba(255, 255, 255, 0.86);
-  --glass-border: rgba(255, 255, 255, 0.65);
-  --glass-hairline: rgba(148, 163, 184, 0.28);
-  --glass-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.35);
-  --glass-shadow-lift: 0 20px 44px -26px rgba(15, 23, 42, 0.42);
-  --glass-highlight: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.85),
-    rgba(255, 255, 255, 0)
-  );
-  --focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.16);
+  --glass-bg: var(--surface-glass);
+  --glass-bg-strong: var(--surface-glass-strong);
+  --glass-border: var(--border);
+  --glass-hairline: var(--border);
+  --glass-shadow: var(--shadow);
+  --glass-shadow-lift: var(--shadow-lift);
+  --glass-highlight: linear-gradient(to bottom, var(--glass-highlight-color), transparent);
+  --focus-ring: 0 0 0 2px var(--ring);
 }
 
 /* 全局表单控件：40px 高、10px 圆角、统一 focus ring */
 .form-input {
   width: 100%;
   min-height: 40px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 14px;
   line-height: 1.5;
-  color: #1c2733;
-  background: rgba(255, 255, 255, 0.85);
+  color: var(--foreground);
+  background: var(--input);
   outline: none;
   cursor: pointer;
   transition:
@@ -62,17 +58,18 @@ body {
 }
 
 .form-input:hover {
-  border-color: rgba(100, 116, 139, 0.6);
+  border-color: var(--ring);
+  background: var(--input-hover);
 }
 
 .form-input:focus {
-  border-color: #0d9488;
+  border-color: var(--primary);
   box-shadow: var(--focus-ring);
-  background: #fff;
+  background: var(--surface-elevated);
 }
 
 .form-input::placeholder {
-  color: #94a3b8;
+  color: var(--foreground-muted);
 }
 
 textarea.form-input {
@@ -110,10 +107,8 @@ textarea.form-input {
   position: relative;
   border: 1px solid var(--glass-hairline);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 8px 24px -20px rgba(15, 23, 42, 0.4);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
 }
 
 .glass-card-interactive {
@@ -125,17 +120,15 @@ textarea.form-input {
 
 .glass-card-interactive:hover {
   transform: translateY(-1px);
-  border-color: rgba(148, 163, 184, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    var(--glass-shadow-lift);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
 }
 
 /* 玻璃工具栏 */
 .glass-toolbar {
   border: 1px solid var(--glass-hairline);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.66);
+  background: var(--surface-toolbar);
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(16px) saturate(160%);
 }
@@ -152,14 +145,14 @@ textarea.form-input {
 .ui-surface {
   border: 1px solid var(--glass-hairline);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 10px 30px -24px rgba(15, 23, 42, 0.4);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
 }
 
+.ui-surface.form-section { background: var(--surface-section); }
+
 .application-filter-bar {
-  background: rgba(255, 255, 255, 0.66);
+  background: var(--surface-toolbar);
   backdrop-filter: blur(16px) saturate(160%);
 }
 
@@ -168,7 +161,7 @@ textarea.form-input {
   .glass-toolbar,
   .ui-page-header,
   .application-filter-bar {
-    background: #fff;
+    background: var(--surface-elevated);
     backdrop-filter: none;
   }
 }
@@ -179,7 +172,36 @@ textarea.form-input {
   .glass-toolbar,
   .ui-page-header,
   .application-filter-bar {
-    border-color: #64748b;
-    background: rgba(255, 255, 255, 0.98);
+    border-color: var(--border-strong);
+    background: var(--surface-elevated);
   }
+}
+
+/* Theme coverage shared by native controls and portals. No color inversion. */
+body { background: var(--background); }
+* { scrollbar-color: var(--scrollbar) transparent; scrollbar-width: thin; }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible:not([class*='ring-']):not(.form-input) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+:where(input, textarea, select) { color-scheme: inherit; }
+:where(input, textarea)::placeholder { color: var(--foreground-muted); opacity: 1; }
+.form-input:disabled {
+  color: var(--foreground-muted);
+  background: var(--surface-muted);
+  cursor: not-allowed;
+}
+.form-input[aria-invalid='true'] { border-color: var(--destructive); }
+:where([data-slot='dialog-content'], [data-slot='sheet-content'], [data-slot='drawer-content'],
+[data-slot='popover-content'], [data-slot='select-content'], [data-slot='dropdown-menu-content']) {
+  background: var(--surface-floating);
+  color: var(--foreground);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+:where([data-slot='input'], [data-slot='textarea'], [data-slot='select-trigger']) {
+  color: var(--foreground);
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-input { transition: none; }
 }

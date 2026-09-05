@@ -1,9 +1,19 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DRIZZLE_DATABASE } from '@lark-apaas/fullstack-nestjs-core';
-import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  ilike,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 
-import { applications } from '@server/database/schema';
+import { applications, interviewReviews } from '@server/database/schema';
 import {
   hasEnteredApplicationStage,
   PROCESS_TIME_STAGES,
@@ -66,14 +76,24 @@ export class ApplicationService {
       conditions.push(ilike(applications.location, `%${filters.location}%`));
     }
 
-    const rows: (typeof applications.$inferSelect)[] = await this.db
-      .select()
-      .from(applications)
-      .where(and(...conditions))
-      .orderBy(desc(applications.updatedAt));
+    const rows: (typeof applications.$inferSelect & { reviewCount: number })[] =
+      await this.db
+        .select({
+          ...getTableColumns(applications),
+          reviewCount: sql<number>`(
+            SELECT count(*)::int
+            FROM ${interviewReviews}
+            WHERE ${interviewReviews.applicationId} = ${applications.id}
+              AND ${interviewReviews.userId} = ${userId}
+          )`,
+        })
+        .from(applications)
+        .where(and(...conditions))
+        .orderBy(desc(applications.updatedAt));
 
-    return rows.map((row: typeof applications.$inferSelect) => ({
+    return rows.map((row) => ({
       record_id: row.id,
+      review_count: Number(row.reviewCount) || 0,
       fields: {
         公司名称: row.company,
         岗位名称: row.position,
@@ -113,6 +133,12 @@ export class ApplicationService {
           boardOrder: applications.boardOrder,
           createdAt: applications.createdAt,
           updatedAt: applications.updatedAt,
+          reviewCount: sql<number>`(
+            SELECT count(*)::int
+            FROM ${interviewReviews}
+            WHERE ${interviewReviews.applicationId} = ${applications.id}
+              AND ${interviewReviews.userId} = ${userId}
+          )`,
         })
         .from(applications)
         .where(eq(applications.userId, userId))
@@ -126,6 +152,7 @@ export class ApplicationService {
 
     return rows.map((row) => ({
       record_id: row.id,
+      review_count: Number(row.reviewCount) || 0,
       fields: {
         公司名称: row.company,
         岗位名称: row.position,
