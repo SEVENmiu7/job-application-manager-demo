@@ -19,6 +19,7 @@ import {
   FUNCTION_OPTIONS,
   CHANNEL_OPTIONS,
   PROCESS_TIME_STAGES,
+  getAdvancedApplicationStatus,
   type ApplicationProcessStage,
   type ApplicationProcessTimes,
 } from '../../../../shared/types';
@@ -83,6 +84,24 @@ export default function AddApplication() {
         ? f.职能方向.filter((x) => x !== fn)
         : [...f.职能方向, fn],
     }));
+  };
+
+  const updateProcessTime = (
+    stage: ApplicationProcessStage,
+    value: string,
+  ): void => {
+    setForm((current: FormData) => {
+      const nextProcessTimes = { ...current.流程时间, [stage]: value };
+      return {
+        ...current,
+        流程时间: nextProcessTimes,
+        当前进度: getAdvancedApplicationStatus(
+          current.当前进度,
+          current.流程时间,
+          nextProcessTimes,
+        ),
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,10 +318,7 @@ export default function AddApplication() {
                         type="datetime-local"
                         value={form.流程时间[stage]}
                         onChange={(event) =>
-                          update('流程时间', {
-                            ...form.流程时间,
-                            [stage]: event.target.value,
-                          })
+                          updateProcessTime(stage, event.target.value)
                         }
                         className="form-input"
                       />

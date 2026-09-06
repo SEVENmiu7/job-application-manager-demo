@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpenText,
@@ -75,16 +75,21 @@ import {
   getApplicationStatusTheme,
   type ApplicationStatusTheme,
 } from '@/lib/application-theme';
-import {
-  formatApplicationTime,
-  parseApplicationTime,
-} from '@/lib/application-time';
+import { formatApplicationTime } from '@/lib/application-time';
 import {
   getCurrentStageTime,
   getLatestInterviewStage,
   type StageTimeDisplay,
 } from '@/lib/stage-time';
 import { cn } from '@/lib/utils';
+import {
+  APPLICATION_LIST_DEFAULT_SORT_DIRECTIONS,
+  getApplicationListSortDirectionLabel,
+  getStatusSortTransition,
+  sortApplicationRecords,
+  type ApplicationListSortDirection,
+  type ApplicationListSortOption,
+} from './ApplicationListSort';
 import type {
   ApplicationRecord,
   ApplicationProcessTimes,
@@ -93,6 +98,7 @@ import type {
 import type { InterviewReview } from '@shared/api.interface';
 import {
   PROCESS_TIME_STAGES,
+  getAdvancedApplicationStatus,
   FUNCTION_OPTIONS,
   formatLocations,
   INDUSTRY_OPTIONS,
@@ -108,6 +114,7 @@ interface FilterSelectProps {
 }
 
 const QUICK_STATUSES: string[] = [
+  '收藏',
   '已投递',
   '测评',
   'AI面试',
@@ -119,29 +126,7 @@ const QUICK_STATUSES: string[] = [
 
 const INTERVIEW_STATUSES: string[] = ['AI面试', '一面', '二面', '三面', 'HR面'];
 
-type SortOption =
-  | 'updated'
-  | 'applied'
-  | 'status'
-  | 'company'
-  | 'function'
-  | 'channel'
-  | 'location'
-  | 'industry';
-type SortDirection = 'asc' | 'desc';
-
 const PAGE_SIZE = 15;
-
-const DEFAULT_SORT_DIRECTIONS: Record<SortOption, SortDirection> = {
-  updated: 'desc',
-  applied: 'desc',
-  status: 'asc',
-  company: 'asc',
-  function: 'asc',
-  channel: 'asc',
-  location: 'asc',
-  industry: 'asc',
-};
 
 interface DetailDrawerState {
   item: ApplicationRecord;
@@ -162,12 +147,18 @@ export default function ApplicationList() {
   >('application-list:filters', {});
   const { value: showFilters, setValue: setShowFilters } =
     useSessionState<boolean>('application-list:show-filters', false);
-  const { value: sortBy, setValue: setSortBy } = useSessionState<SortOption>(
-    'application-list:sort-by',
-    'applied',
-  );
+  const { value: sortBy, setValue: setSortBy } =
+    useSessionState<ApplicationListSortOption>(
+      'application-list:sort-by',
+      'applied',
+    );
   const { value: sortDirection, setValue: setSortDirection } =
-    useSessionState<SortDirection>('application-list:sort-direction', 'desc');
+    useSessionState<ApplicationListSortDirection>(
+      'application-list:sort-direction',
+      'desc',
+    );
+  const { value: autoFavoriteSort, setValue: setAutoFavoriteSort } =
+    useSessionState<boolean>('application-list:auto-favorite-sort', false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApplicationRecord | null>(
     null,
@@ -181,6 +172,7 @@ export default function ApplicationList() {
     null,
   );
   const [reviewRefreshKey, setReviewRefreshKey] = useState<number>(0);
+  const initializedFavoriteSort = useRef<boolean>(false);
   const deferredKeyword: string = useDeferredValue(filters.keyword || '');
   const requestFilters: Record<string, string> | undefined = useMemo(() => {
     const nextFilters: Record<string, string> = {
@@ -201,121 +193,29 @@ export default function ApplicationList() {
   const { data, loading, error, refetch, replaceApplication } =
     useApplications(requestFilters);
   const { refetch: refetchStats } = useStats();
-  const sortedData: ApplicationRecord[] = useMemo(() => {
-    const timestamp = (value?: string): number =>
-      parseApplicationTime(value)?.getTime() || 0;
-    const direction: number = sortDirection === 'asc' ? 1 : -1;
-    const compareText = (left?: string, right?: string): number => {
-      const leftValue: string = left?.trim() || '';
-      const rightValue: string = right?.trim() || '';
-      if (!leftValue && !rightValue) return 0;
-      if (!leftValue) return 1;
-      if (!rightValue) return -1;
-      return leftValue.localeCompare(rightValue, 'zh-CN') * direction;
-    };
-    const compareTime = (left?: string, right?: string): number => {
-      const leftValue: number = timestamp(left);
-      const rightValue: number = timestamp(right);
-      if (!leftValue && !rightValue) return 0;
-      if (!leftValue) return 1;
-      if (!rightValue) return -1;
-      return (leftValue - rightValue) * direction;
-    };
-    const compareCompany = (
-      left: ApplicationRecord,
-      right: ApplicationRecord,
-    ): number =>
-      compareText(left.fields['公司名称'], right.fields['公司名称']) ||
-      compareText(left.fields['岗位名称'], right.fields['岗位名称']);
+  const sortedData: ApplicationRecord[] = useMemo(
+    () => sortApplicationRecords(data, sortBy, sortDirection),
+    [data, sortBy, sortDirection],
+  );
 
-    return [...data].sort(
-      (left: ApplicationRecord, right: ApplicationRecord): number => {
-        if (sortBy === 'company') {
-          return compareCompany(left, right);
-        }
-        if (sortBy === 'status') {
-          const leftRank: number = STATUS_ORDER.indexOf(
-            left.fields['当前进度'] || '收藏',
-          );
-          const rightRank: number = STATUS_ORDER.indexOf(
-            right.fields['当前进度'] || '收藏',
-          );
-          if (leftRank !== rightRank) return (leftRank - rightRank) * direction;
-          return compareCompany(left, right);
-        }
-        if (sortBy === 'applied') {
-          return (
-            compareTime(left.fields['投递时间'], right.fields['投递时间']) ||
-            compareCompany(left, right)
-          );
-        }
-        if (sortBy === 'updated') {
-          return (
-            compareTime(
-              left.updated_at || left.created_at,
-              right.updated_at || right.created_at,
-            ) || compareCompany(left, right)
-          );
-        }
-        if (sortBy === 'function') {
-          return (
-            compareText(
-              left.fields['职能方向']?.[0],
-              right.fields['职能方向']?.[0],
-            ) ||
-            compareText(left.fields['招聘渠道'], right.fields['招聘渠道']) ||
-            compareCompany(left, right)
-          );
-        }
-        if (sortBy === 'channel') {
-          return (
-            compareText(left.fields['招聘渠道'], right.fields['招聘渠道']) ||
-            compareText(
-              left.fields['职能方向']?.[0],
-              right.fields['职能方向']?.[0],
-            ) ||
-            compareCompany(left, right)
-          );
-        }
-        if (sortBy === 'location') {
-          return (
-            compareText(
-              formatLocations(left.fields['工作地区']),
-              formatLocations(right.fields['工作地区']),
-            ) ||
-            compareText(left.fields['所属行业'], right.fields['所属行业']) ||
-            compareCompany(left, right)
-          );
-        }
-        return (
-          compareText(left.fields['所属行业'], right.fields['所属行业']) ||
-          compareText(
-            formatLocations(left.fields['工作地区']),
-            formatLocations(right.fields['工作地区']),
-          ) ||
-          compareCompany(left, right)
-        );
-      },
-    );
-  }, [data, sortBy, sortDirection]);
-
-  const sortDirectionLabel: string =
-    sortBy === 'updated' || sortBy === 'applied'
-      ? sortDirection === 'asc'
-        ? '旧 → 新'
-        : '新 → 旧'
-      : sortBy === 'status'
-        ? sortDirection === 'asc'
-          ? '前 → 后'
-          : '后 → 前'
-        : sortDirection === 'asc'
-          ? 'A → Z'
-          : 'Z → A';
+  const sortDirectionLabel: string = getApplicationListSortDirectionLabel(
+    sortBy,
+    sortDirection,
+  );
 
   const activeFilterCount: number = Object.entries(filters).filter(
     ([, value]: [string, string]) => Boolean(value),
   ).length;
   const currentStatus: string = filters.status || '';
+
+  useEffect(() => {
+    if (initializedFavoriteSort.current) return;
+    initializedFavoriteSort.current = true;
+    if (currentStatus !== '收藏' || sortBy !== 'applied') return;
+    setSortBy('favorite');
+    setSortDirection('desc');
+    setAutoFavoriteSort(true);
+  }, [currentStatus, setSortBy, setSortDirection, sortBy]);
 
   useEffect(() => {
     setPage(1);
@@ -386,6 +286,43 @@ export default function ApplicationList() {
     }));
   };
 
+  const updateStatusFilter = (value: string): void => {
+    const nextSort = getStatusSortTransition(currentStatus, value, {
+      sortBy,
+      sortDirection,
+      autoFavoriteSort,
+    });
+    setSortBy(nextSort.sortBy);
+    setSortDirection(nextSort.sortDirection);
+    setAutoFavoriteSort(nextSort.autoFavoriteSort);
+    updateFilter('status', value);
+  };
+
+  const clearFilters = (): void => {
+    const nextSort = getStatusSortTransition(currentStatus, '', {
+      sortBy,
+      sortDirection,
+      autoFavoriteSort,
+    });
+    setSortBy(nextSort.sortBy);
+    setSortDirection(nextSort.sortDirection);
+    setAutoFavoriteSort(false);
+    setFilters({});
+  };
+
+  const updateSort = (value: ApplicationListSortOption): void => {
+    setAutoFavoriteSort(false);
+    setSortBy(value);
+    setSortDirection(APPLICATION_LIST_DEFAULT_SORT_DIRECTIONS[value]);
+  };
+
+  const toggleSortDirection = (): void => {
+    setAutoFavoriteSort(false);
+    setSortDirection((direction: ApplicationListSortDirection) =>
+      direction === 'asc' ? 'desc' : 'asc',
+    );
+  };
+
   const handleDelete = async () => {
     const recordId: string | undefined = deleteTarget?.record_id;
     if (!recordId) return;
@@ -412,10 +349,20 @@ export default function ApplicationList() {
   ): Promise<boolean> => {
     const recordId: string | undefined = item.record_id;
     if (!recordId || savingQuickEdit) return false;
+    const synchronizedFields: Partial<ApplicationRecord['fields']> = {
+      ...fields,
+    };
+    if (fields['流程时间'] && !fields['当前进度']) {
+      synchronizedFields['当前进度'] = getAdvancedApplicationStatus(
+        item.fields['当前进度'] || '收藏',
+        item.fields['流程时间'],
+        fields['流程时间'],
+      );
+    }
     const optimisticItem: ApplicationRecord = {
       ...item,
       updated_at: new Date().toISOString(),
-      fields: { ...item.fields, ...fields },
+      fields: { ...item.fields, ...synchronizedFields },
     };
     replaceApplication(optimisticItem);
     setDetailDrawer((current: DetailDrawerState | null) =>
@@ -425,7 +372,7 @@ export default function ApplicationList() {
     );
     setSavingQuickEdit(recordId);
     try {
-      await api.updateApplication(recordId, fields);
+      await api.updateApplication(recordId, synchronizedFields);
       refetch();
       refetchStats();
       toast.success('修改已保存');
@@ -464,10 +411,7 @@ export default function ApplicationList() {
         title="投递列表"
         description={
           <>
-            共{' '}
-            <span className="font-bold text-foreground ">
-              {data.length}
-            </span>{' '}
+            共 <span className="font-bold text-foreground ">{data.length}</span>{' '}
             条投递记录
             {activeFilterCount > 0 && '，当前结果已筛选'}
           </>
@@ -505,13 +449,7 @@ export default function ApplicationList() {
             />
           </div>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2 lg:flex lg:items-center">
-            <Select
-              value={sortBy}
-              onValueChange={(value: SortOption) => {
-                setSortBy(value);
-                setSortDirection(DEFAULT_SORT_DIRECTIONS[value]);
-              }}
-            >
+            <Select value={sortBy} onValueChange={updateSort}>
               <SelectTrigger className="h-10 min-w-0 bg-surface-elevated px-2.5 text-xs sm:text-sm lg:h-11 lg:w-48 lg:px-3">
                 <ArrowUpDown className="size-3.5 shrink-0 text-foreground-muted sm:size-4" />
                 <SelectValue aria-label="排序方式" />
@@ -520,6 +458,7 @@ export default function ApplicationList() {
                 <SelectGroup>
                   <SelectLabel>常用</SelectLabel>
                   <SelectItem value="updated">最近更新</SelectItem>
+                  <SelectItem value="favorite">收藏时间</SelectItem>
                   <SelectItem value="applied">投递时间</SelectItem>
                   <SelectItem value="status">当前进度</SelectItem>
                   <SelectItem value="company">公司名称</SelectItem>
@@ -543,11 +482,7 @@ export default function ApplicationList() {
               variant="outline"
               size="lg"
               className="h-10 min-w-0 bg-surface-elevated px-2.5 text-xs font-bold text-foreground-secondary sm:min-w-24 sm:px-3 sm:text-sm lg:h-11"
-              onClick={() =>
-                setSortDirection((direction: SortDirection) =>
-                  direction === 'asc' ? 'desc' : 'asc',
-                )
-              }
+              onClick={toggleSortDirection}
               aria-label={`切换排序方向，当前为${sortDirectionLabel}`}
               title={`当前排序：${sortDirectionLabel}`}
             >
@@ -583,7 +518,7 @@ export default function ApplicationList() {
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
             <button
               type="button"
-              onClick={() => updateFilter('status', '')}
+              onClick={() => updateStatusFilter('')}
               className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold transition sm:px-3 sm:py-1.5 sm:text-sm ${
                 currentStatus === ''
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
@@ -596,7 +531,7 @@ export default function ApplicationList() {
               <button
                 key={status}
                 type="button"
-                onClick={() => updateFilter('status', status)}
+                onClick={() => updateStatusFilter(status)}
                 className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold transition sm:px-3 sm:py-1.5 sm:text-sm ${
                   currentStatus === status
                     ? 'border-primary bg-primary text-primary-foreground shadow-sm'
@@ -612,7 +547,7 @@ export default function ApplicationList() {
               variant="ghost"
               size="sm"
               className="h-8 shrink-0 px-2 text-xs sm:text-sm"
-              onClick={() => setFilters({})}
+              onClick={clearFilters}
             >
               <X className="size-3.5" />
               清除
@@ -625,7 +560,7 @@ export default function ApplicationList() {
             <FilterSelect
               label="当前进度"
               value={filters.status || ''}
-              onChange={(value: string) => updateFilter('status', value)}
+              onChange={updateStatusFilter}
               options={STATUS_ORDER}
             />
             <FilterSelect
@@ -679,7 +614,7 @@ export default function ApplicationList() {
               : '添加第一条记录，开始管理求职进度'}
           </p>
           {activeFilterCount > 0 ? (
-            <Button className="mt-5" onClick={() => setFilters({})}>
+            <Button className="mt-5" onClick={clearFilters}>
               清除筛选
             </Button>
           ) : (
@@ -1253,9 +1188,7 @@ function ApplicationMobileCard({
       {/* 3. 当前节点时间与投递时间 */}
       <div className="mt-3 grid grid-cols-1 gap-1.5 rounded-lg bg-surface-muted p-3 text-[13px] text-foreground-secondary ">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-          <span className="font-bold text-foreground ">
-            {display.stage}
-          </span>
+          <span className="font-bold text-foreground ">{display.stage}</span>
           <span className="text-foreground-muted">·</span>
           {display.missing ? (
             <span className="text-[13px] font-semibold text-amber-600 dark:text-amber-400">
@@ -1495,7 +1428,9 @@ function ApplicationDetailDrawer({
             />
             <DrawerMeta label="招聘渠道" value={fields?.['招聘渠道']} />
             <div className="min-w-0">
-              <p className="text-[11px] font-bold text-foreground-muted">投递时间</p>
+              <p className="text-[11px] font-bold text-foreground-muted">
+                投递时间
+              </p>
               <InlineDateTimeEditor
                 label="投递时间"
                 value={fields?.['投递时间']}
@@ -1511,7 +1446,9 @@ function ApplicationDetailDrawer({
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
           <section className="rounded-xl border border-border bg-surface-elevated/85 p-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-bold text-foreground-muted">招聘流程</p>
+              <p className="text-[11px] font-bold text-foreground-muted">
+                招聘流程
+              </p>
               <span className="text-[11px] text-foreground-muted">
                 节点可独立补记，无需按顺序
               </span>
@@ -1555,7 +1492,9 @@ function ApplicationDetailDrawer({
                 ) : null;
               })()}
             <div className="mt-3 rounded-lg bg-surface-muted px-3 py-2.5 ">
-              <p className="text-[11px] font-bold text-foreground-muted">下一步安排</p>
+              <p className="text-[11px] font-bold text-foreground-muted">
+                下一步安排
+              </p>
               <InlineFieldEditor
                 label="下一步安排"
                 value={fields?.['下一步安排']}
@@ -1781,7 +1720,9 @@ function MaterialCard({
             }}
           />
           <div className="mt-2.5 flex items-center justify-between">
-            <span className="text-xs text-foreground-muted">Ctrl + Enter 保存</span>
+            <span className="text-xs text-foreground-muted">
+              Ctrl + Enter 保存
+            </span>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -1806,7 +1747,9 @@ function MaterialCard({
       ) : (
         <div
           className={`mt-3 whitespace-pre-wrap text-sm leading-7 ${
-            normalizedContent ? 'text-foreground-secondary' : 'text-foreground-muted'
+            normalizedContent
+              ? 'text-foreground-secondary'
+              : 'text-foreground-muted'
           }`}
         >
           {normalizedContent || `暂未填写${title}。`}

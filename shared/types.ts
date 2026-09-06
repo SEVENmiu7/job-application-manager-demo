@@ -84,6 +84,26 @@ export const STATUS_ORDER = [
   '已拒绝',
 ];
 
+/**
+ * 填写流程时间时，只将进度向前推进到新记录的最远节点。
+ * 已拒绝等更靠后的结果态不会因补录早期时间而回退。
+ */
+export function getAdvancedApplicationStatus(
+  currentStatus: string,
+  previousTimes: ApplicationProcessTimes = {},
+  nextTimes: ApplicationProcessTimes = {},
+): string {
+  const currentRank: number = STATUS_ORDER.indexOf(currentStatus);
+  const changedStages: ApplicationProcessStage[] = PROCESS_TIME_STAGES.filter(
+    (stage: ApplicationProcessStage) =>
+      Boolean(nextTimes[stage]) && nextTimes[stage] !== previousTimes[stage],
+  );
+  const candidate: ApplicationProcessStage | undefined = changedStages.at(-1);
+  if (!candidate) return currentStatus;
+  const candidateRank: number = STATUS_ORDER.indexOf(candidate);
+  return candidateRank > currentRank ? candidate : currentStatus;
+}
+
 const APPLIED_STATUS_INDEX = STATUS_ORDER.indexOf('已投递');
 
 export function hasEnteredApplicationStage(status?: string): boolean {

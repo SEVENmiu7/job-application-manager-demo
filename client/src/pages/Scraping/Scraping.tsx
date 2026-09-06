@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Search,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { api } from '@/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -76,6 +77,12 @@ export default function Scraping() {
   const [stage, setStage] = useState<ProcessingStage>(draft ? 'ready' : 'idle');
   const [progress, setProgress] = useState<number>(draft ? 100 : 0);
   const [error, setError] = useState<string>('');
+
+  const clearSource = (source: SourceMode): void => {
+    if (source === 'url') setUrl('');
+    else setJobText('');
+    setError('');
+  };
 
   useEffect(() => {
     api
@@ -324,10 +331,7 @@ export default function Scraping() {
         </p>
       </header>
 
-      <section
-        className="glass-panel px-4 py-3"
-        aria-label="岗位采集流程"
-      >
+      <section className="glass-panel px-4 py-3" aria-label="岗位采集流程">
         <CompactStepper
           activeIndex={
             stage === 'idle'
@@ -351,8 +355,16 @@ export default function Scraping() {
             onChange={(next: SourceMode) => setMode(next)}
             ariaLabel="选择采集来源"
             options={[
-              { value: 'url', label: '读取岗位链接', icon: <Globe2 className="size-3.5" /> },
-              { value: 'text', label: '粘贴岗位文本', icon: <ClipboardPaste className="size-3.5" /> },
+              {
+                value: 'url',
+                label: '读取岗位链接',
+                icon: <Globe2 className="size-3.5" />,
+              },
+              {
+                value: 'text',
+                label: '粘贴岗位文本',
+                icon: <ClipboardPaste className="size-3.5" />,
+              },
             ]}
           />
         </div>
@@ -360,7 +372,23 @@ export default function Scraping() {
         {mode === 'url' ? (
           <div className="space-y-5 pt-5">
             <div className="space-y-2">
-              <Label htmlFor="job-url">岗位页面链接</Label>
+              <div className="flex min-h-7 items-center justify-between gap-3">
+                <Label htmlFor="job-url">岗位页面链接</Label>
+                {url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-xs text-foreground-muted"
+                    onClick={() => clearSource('url')}
+                    disabled={isProcessing}
+                    aria-label="清空岗位链接"
+                  >
+                    <X className="size-3.5" />
+                    清空
+                  </Button>
+                )}
+              </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Input
                   id="job-url"
@@ -443,7 +471,23 @@ export default function Scraping() {
           </div>
         ) : (
           <div className="space-y-3 pt-5">
-            <Label htmlFor="job-text">岗位招聘文本</Label>
+            <div className="flex min-h-7 items-center justify-between gap-3">
+              <Label htmlFor="job-text">岗位招聘文本</Label>
+              {jobText && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs text-foreground-muted"
+                  onClick={() => clearSource('text')}
+                  disabled={isProcessing}
+                  aria-label="清空岗位文本"
+                >
+                  <X className="size-3.5" />
+                  清空
+                </Button>
+              )}
+            </div>
             <Textarea
               id="job-text"
               value={jobText}

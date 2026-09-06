@@ -95,6 +95,7 @@ import {
 import {
   formatLocations,
   hasEnteredApplicationStage,
+  getAdvancedApplicationStatus,
   STATUS_GROUPS,
   STATUS_ORDER,
 } from '../../../../shared/types';
@@ -623,10 +624,20 @@ export default function Dashboard() {
     const recordId: string | undefined = application.record_id;
     if (!recordId || savingId) return false;
     const previousApplications: ApplicationRecord[] = applications;
+    const synchronizedFields: Partial<ApplicationRecord['fields']> = {
+      ...fields,
+    };
+    if (fields['流程时间'] && !fields['当前进度']) {
+      synchronizedFields['当前进度'] = getAdvancedApplicationStatus(
+        application.fields['当前进度'] || '收藏',
+        application.fields['流程时间'],
+        fields['流程时间'],
+      );
+    }
     const changedApplication: ApplicationRecord = {
       ...application,
       updated_at: new Date().toISOString(),
-      fields: { ...application.fields, ...fields },
+      fields: { ...application.fields, ...synchronizedFields },
     };
     setRecords(
       applications.map((item: ApplicationRecord) =>
@@ -635,7 +646,7 @@ export default function Dashboard() {
     );
     setSavingId(recordId);
     try {
-      await api.updateApplication(recordId, fields);
+      await api.updateApplication(recordId, synchronizedFields);
       try {
         const refreshedApplications: ApplicationRecord[] =
           await api.listApplications();
@@ -871,7 +882,10 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs text-foreground-muted" aria-live="polite">
+          <span
+            className="mr-1 text-xs text-foreground-muted"
+            aria-live="polite"
+          >
             {normalizedKeyword
               ? `找到 ${visibleApplications.length} 条`
               : '每列最多标记 3 条重点，重点投递优先排列'}
@@ -1104,9 +1118,7 @@ function StageColumn({
     <section
       ref={setNodeRef}
       className={`relative flex h-[620px] min-w-0 flex-col overflow-hidden rounded-xl border transition ${
-        isOver
-          ? 'border-teal-400 ring-2 ring-ring'
-          : 'border-border'
+        isOver ? 'border-teal-400 ring-2 ring-ring' : 'border-border'
       } ${style.column}`}
     >
       <div className={`h-0.5 shrink-0 ${style.line}`} />

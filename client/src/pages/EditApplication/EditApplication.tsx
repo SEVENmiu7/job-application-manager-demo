@@ -19,6 +19,7 @@ import {
   FUNCTION_OPTIONS,
   CHANNEL_OPTIONS,
   PROCESS_TIME_STAGES,
+  getAdvancedApplicationStatus,
   type ApplicationProcessStage,
   type ApplicationProcessTimes,
 } from '../../../../shared/types';
@@ -136,6 +137,24 @@ export default function EditApplication() {
     }));
   };
 
+  const updateProcessTime = (
+    stage: ApplicationProcessStage,
+    value: string,
+  ): void => {
+    setForm((current: FormData) => {
+      const nextProcessTimes = { ...current.流程时间, [stage]: value };
+      return {
+        ...current,
+        流程时间: nextProcessTimes,
+        当前进度: getAdvancedApplicationStatus(
+          current.当前进度,
+          current.流程时间,
+          nextProcessTimes,
+        ),
+      };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -196,7 +215,9 @@ export default function EditApplication() {
           <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
             编辑投递
           </h1>
-          <p className="mt-1 text-sm text-foreground-muted">更新投递信息与进度</p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            更新投递信息与进度
+          </p>
         </div>
       </div>
 
@@ -327,26 +348,23 @@ export default function EditApplication() {
                   手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
-                <label
-                  key={stage}
-                  className="space-y-1.5 text-xs font-semibold text-foreground-secondary"
-                >
-                  <span>{stage}</span>
-                  <input
-                    type="datetime-local"
-                    value={form.流程时间[stage]}
-                    onChange={(event) =>
-                      update('流程时间', {
-                        ...form.流程时间,
-                        [stage]: event.target.value,
-                      })
-                    }
-                    className="form-input"
-                  />
-                </label>
-              ))}
-            </div>
+                  {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
+                    <label
+                      key={stage}
+                      className="space-y-1.5 text-xs font-semibold text-foreground-secondary"
+                    >
+                      <span>{stage}</span>
+                      <input
+                        type="datetime-local"
+                        value={form.流程时间[stage]}
+                        onChange={(event) =>
+                          updateProcessTime(stage, event.target.value)
+                        }
+                        className="form-input"
+                      />
+                    </label>
+                  ))}
+                </div>
               </FormField>
             </CollapsibleContent>
           </Collapsible>

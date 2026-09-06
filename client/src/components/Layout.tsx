@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Download,
   LayoutGrid,
   List,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlusCircle,
   Target,
   X,
@@ -12,7 +14,7 @@ import {
 
 import { AppearanceMenu } from './theme/AppearanceMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { useSidebarCollapsed } from '@/hooks/useMediaQuery';
+import { useMediaQuery, useSidebarCollapsed } from '@/hooks/useMediaQuery';
 import './Layout.css';
 
 interface NavigationItem {
@@ -41,12 +43,72 @@ const NAV_ITEMS: NavigationItem[] = [
 
 export default function Layout() {
   const location = useLocation();
-  const sidebarCollapsed: boolean = useSidebarCollapsed();
+  const automaticSidebarCollapsed: boolean = useSidebarCollapsed();
+  const isMobile: boolean = useMediaQuery('(max-width: 767px)');
+  const [manualSidebarCollapsed, setManualSidebarCollapsed] = useState<
+    boolean | null
+  >(() => {
+    const saved: string | null = window.localStorage.getItem(
+      'qz-sidebar-collapsed',
+    );
+    return saved === null ? null : saved === 'true';
+  });
+  const sidebarCollapsed: boolean =
+    !isMobile &&
+    (manualSidebarCollapsed === null
+      ? automaticSidebarCollapsed
+      : manualSidebarCollapsed);
+  const [sidebarHovered, setSidebarHovered] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const sidebarEnterTimer = useRef<number | null>(null);
+  const sidebarLeaveTimer = useRef<number | null>(null);
+
+  const clearSidebarTimer = (timer: MutableRefObject<number | null>): void => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+
+  const handleSidebarMouseEnter = (): void => {
+    clearSidebarTimer(sidebarLeaveTimer);
+    if (!sidebarCollapsed) return;
+    clearSidebarTimer(sidebarEnterTimer);
+    sidebarEnterTimer.current = window.setTimeout(() => {
+      setSidebarHovered(true);
+      sidebarEnterTimer.current = null;
+    }, 140);
+  };
+
+  const handleSidebarMouseLeave = (): void => {
+    clearSidebarTimer(sidebarEnterTimer);
+    if (!sidebarCollapsed) return;
+    clearSidebarTimer(sidebarLeaveTimer);
+    sidebarLeaveTimer.current = window.setTimeout(() => {
+      setSidebarHovered(false);
+      sidebarLeaveTimer.current = null;
+    }, 180);
+  };
+
+  const toggleSidebar = (): void => {
+    const nextCollapsed: boolean = !sidebarCollapsed;
+    setManualSidebarCollapsed(nextCollapsed);
+    window.localStorage.setItem('qz-sidebar-collapsed', String(nextCollapsed));
+  };
 
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(
+    () => () => {
+      if (sidebarEnterTimer.current !== null) {
+        window.clearTimeout(sidebarEnterTimer.current);
+      }
+      if (sidebarLeaveTimer.current !== null) {
+        window.clearTimeout(sidebarLeaveTimer.current);
+      }
+    },
+    [],
+  );
 
   const renderNavItem = (item: NavigationItem) => {
     const Icon = item.icon;
@@ -69,7 +131,7 @@ export default function Layout() {
         <span className="nav-label">{item.label}</span>
       </NavLink>
     );
-    if (sidebarCollapsed) {
+    if (sidebarCollapsed && !sidebarHovered) {
       return (
         <Tooltip key={item.path}>
           <TooltipTrigger asChild>{link}</TooltipTrigger>
@@ -115,7 +177,9 @@ export default function Layout() {
       <aside
         className={`layout-sidebar ${mobileMenuOpen ? 'layout-sidebar-open' : ''} ${
           sidebarCollapsed ? 'layout-sidebar-collapsed' : ''
-        }`}
+        } ${sidebarCollapsed && sidebarHovered ? 'layout-sidebar-hovered' : ''}`}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
         <div className="sidebar-header">
           <div className="sidebar-logo" aria-hidden="true">
@@ -125,6 +189,16 @@ export default function Layout() {
             <div className="sidebar-title">求职投递</div>
             <div className="sidebar-subtitle">面试演示版</div>
           </div>
+          <button
+            type="button"
+            className="sidebar-collapse-button"
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+            aria-pressed={sidebarCollapsed}
+            title={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+          </button>
         </div>
 
         <nav className="sidebar-nav" aria-label="主导航">

@@ -16,6 +16,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { applications, interviewReviews } from '@server/database/schema';
 import {
   hasEnteredApplicationStage,
+  getAdvancedApplicationStatus,
   PROCESS_TIME_STAGES,
   type ApplicationProcessStage,
   type ApplicationProcessTimes,
@@ -205,7 +206,13 @@ export class ApplicationService {
 
   async create(userId: string, fields: Record<string, unknown>) {
     const now: string = new Date().toISOString();
-    const status: string = this.getString(fields, '当前进度') || '收藏';
+    const requestedStatus: string =
+      this.getString(fields, '当前进度') || '收藏';
+    const status: string = getAdvancedApplicationStatus(
+      requestedStatus,
+      {},
+      this.getProcessTimes(fields),
+    );
     const applyTime: string | null = this.getNullableTimestamp(
       fields,
       '投递时间',
@@ -241,6 +248,7 @@ export class ApplicationService {
 
   async update(userId: string, id: string, fields: Record<string, unknown>) {
     const updates: Partial<NewApplication> = {};
+    const now: string = new Date().toISOString();
     if ('公司名称' in fields)
       updates.company = this.getString(fields, '公司名称');
     if ('岗位名称' in fields)
@@ -257,21 +265,65 @@ export class ApplicationService {
       updates.favoriteTime = this.getNullableTimestamp(fields, '收藏时间');
     if ('投递时间' in fields)
       updates.applyTime = this.getNullableTimestamp(fields, '投递时间');
-    if ('流程时间' in fields)
-      updates.processTimes = this.getProcessTimesJson(fields);
-    if ('当前进度' in fields)
+    if ('流程时间' in fields) {
+      const nextProcessTimes: ApplicationProcessTimes =
+        this.getProcessTimes(fields);
+      const requestedStatus: string | null =
+        '当前进度' in fields
+          ? this.getNullableString(fields, '当前进度')
+          : null;
+      if (requestedStatus) {
+        const synchronizedStatus: string = getAdvancedApplicationStatus(
+          requestedStatus,
+          {},
+          nextProcessTimes,
+        );
+        updates.status = synchronizedStatus;
+        updates.processTimes = this.getProcessTimesJson(
+          fields,
+          synchronizedStatus,
+          now,
+        );
+      } else {
+        updates.processTimes = this.getProcessTimesJson(fields);
+        const [current]: {
+          processTimes: string | null;
+          status: string | null;
+        }[] = await this.db
+          .select({
+            processTimes: applications.processTimes,
+            status: applications.status,
+          })
+          .from(applications)
+          .where(and(eq(applications.id, id), eq(applications.userId, userId)));
+        if (current) {
+          const currentStatus: string = current.status || '收藏';
+          const advancedStatus: string = getAdvancedApplicationStatus(
+            currentStatus,
+            this.parseProcessTimes(current.processTimes),
+            this.getProcessTimes(fields),
+          );
+          if (advancedStatus !== currentStatus) updates.status = advancedStatus;
+        }
+      }
+    }
+    if ('当前进度' in fields && !('流程时间' in fields))
       updates.status = this.getNullableString(fields, '当前进度');
     if (
       '当前进度' in fields &&
       !('投递时间' in fields) &&
-      hasEnteredApplicationStage(this.getNullableString(fields, '当前进度'))
+      hasEnteredApplicationStage(
+        typeof updates.status === 'string'
+          ? updates.status
+          : this.getNullableString(fields, '当前进度'),
+      )
     ) {
       const [current]: { applyTime: string | null }[] = await this.db
         .select({ applyTime: applications.applyTime })
         .from(applications)
         .where(and(eq(applications.id, id), eq(applications.userId, userId)));
       if (current && !current.applyTime) {
-        updates.applyTime = new Date().toISOString();
+        updates.applyTime = now;
       }
     }
     if (
@@ -293,7 +345,7 @@ export class ApplicationService {
         current?.processTimes || null,
       );
       if (!processTimes[nextStatus]) {
-        processTimes[nextStatus] = new Date().toISOString();
+        processTimes[nextStatus] = now;
         updates.processTimes = JSON.stringify(processTimes);
       }
     }
@@ -309,7 +361,7 @@ export class ApplicationService {
       updates.boardOrder = this.getNullableNumber(fields, '看板顺序');
     if ('简历标识' in fields)
       updates.resumeTag = this.getNullableString(fields, '简历标识');
-    updates.updatedAt = new Date().toISOString();
+    updates.updatedAt = now;
 
     const [row]: (typeof applications.$inferSelect)[] = await this.db
       .update(applications)
