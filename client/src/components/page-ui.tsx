@@ -15,6 +15,7 @@ interface PageHeaderProps {
   eyebrow?: string;
   title: string;
   description?: ReactNode;
+  leading?: ReactNode;
   actions?: ReactNode;
 }
 
@@ -22,24 +23,30 @@ export function PageHeader({
   eyebrow,
   title,
   description,
+  leading,
   actions,
 }: PageHeaderProps) {
   return (
     <header className="glass-panel relative overflow-hidden px-5 py-4 md:px-6">
       <span className="glass-sheen" aria-hidden="true" />
       <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          {eyebrow && (
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary">
-              {eyebrow}
-            </p>
-          )}
-          <h1 className="mt-0.5 truncate text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-1 text-sm text-foreground-muted">{description}</p>
-          )}
+        <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+          {leading && <div className="shrink-0">{leading}</div>}
+          <div className="min-w-0">
+            {eyebrow && (
+              <p className="text-xs font-semibold tracking-[0.14em] text-primary">
+                {eyebrow}
+              </p>
+            )}
+            <h1 className="mt-0.5 truncate text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-1 text-sm leading-6 text-foreground-muted">
+                {description}
+              </p>
+            )}
+          </div>
         </div>
         {actions && (
           <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
@@ -176,9 +183,14 @@ export function SegmentedControl<T extends string>({
 interface CompactStepperProps {
   steps: { label: string; hint?: string }[];
   activeIndex?: number;
+  onStepClick?: (index: number) => void;
 }
 
-export function CompactStepper({ steps, activeIndex }: CompactStepperProps) {
+export function CompactStepper({
+  steps,
+  activeIndex,
+  onStepClick,
+}: CompactStepperProps) {
   return (
     <ol className="flex flex-wrap items-center gap-y-1" aria-label="流程步骤">
       {steps.map((step, index: number) => {
@@ -195,37 +207,83 @@ export function CompactStepper({ steps, activeIndex }: CompactStepperProps) {
                 aria-hidden="true"
               />
             )}
-            <span className="flex items-center gap-1.5">
-              <span
-                className={cn(
-                  'flex size-5 items-center justify-center rounded-full text-[11px] font-bold',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : done
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-surface-muted text-foreground-muted',
-                )}
+            {onStepClick ? (
+              <button
+                type="button"
+                aria-current={active ? 'step' : undefined}
+                onClick={() => onStepClick(index)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {index + 1}
-              </span>
+                <StepperContent
+                  index={index}
+                  label={step.label}
+                  hint={step.hint}
+                  active={active}
+                  done={done}
+                />
+              </button>
+            ) : (
               <span
-                className={cn(
-                  'text-[13px] font-semibold',
-                  active ? 'text-primary' : 'text-foreground-secondary',
-                )}
+                className="flex items-center gap-1.5 rounded-lg px-1.5 py-1"
+                aria-current={active ? 'step' : undefined}
               >
-                {step.label}
+                <StepperContent
+                  index={index}
+                  label={step.label}
+                  hint={step.hint}
+                  active={active}
+                  done={done}
+                />
               </span>
-              {step.hint && (
-                <span className="hidden text-xs text-foreground-muted sm:inline">
-                  {step.hint}
-                </span>
-              )}
-            </span>
+            )}
           </li>
         );
       })}
     </ol>
+  );
+}
+
+function StepperContent({
+  index,
+  label,
+  hint,
+  active,
+  done,
+}: {
+  index: number;
+  label: string;
+  hint?: string;
+  active: boolean;
+  done: boolean;
+}) {
+  return (
+    <>
+      <span
+        className={cn(
+          'flex size-5 items-center justify-center rounded-full text-[11px] font-bold transition-colors',
+          active
+            ? 'bg-primary text-primary-foreground'
+            : done
+              ? 'bg-primary/10 text-primary'
+              : 'bg-surface-muted text-foreground-muted',
+        )}
+      >
+        {index + 1}
+      </span>
+      <span
+        className={cn(
+          'text-[13px] font-semibold transition-colors',
+          active ? 'text-primary' : 'text-foreground-secondary',
+        )}
+      >
+        {label}
+      </span>
+      {hint && (
+        <span className="hidden text-xs text-foreground-muted sm:inline">
+          {hint}
+        </span>
+      )}
+    </>
   );
 }
 

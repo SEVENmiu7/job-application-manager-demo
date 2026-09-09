@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronDown, Send, Loader2 } from 'lucide-react';
 import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
-import { CompactStepper } from '@/components/page-ui';
+import { CompactStepper, PageHeader } from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
@@ -197,29 +197,22 @@ export default function EditApplication() {
 
   return (
     <div className="mx-auto max-w-[1080px] space-y-5">
-      <div className="ui-page-header flex items-start gap-3 px-4 py-4 sm:items-center sm:gap-4 sm:px-5 sm:py-5">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => navigate(-1)}
-          aria-label="返回"
-          className="shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary">
-            投递档案
-          </p>
-          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
-            编辑投递
-          </h1>
-          <p className="mt-1 text-sm text-foreground-muted">
-            更新投递信息与进度
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="投递档案"
+        title="编辑投递"
+        description="更新岗位信息、投递进度与求职材料。"
+        leading={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(-1)}
+            aria-label="返回"
+          >
+            <ArrowLeft className="size-5" />
+          </Button>
+        }
+      />
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

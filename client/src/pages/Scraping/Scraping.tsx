@@ -16,11 +16,14 @@ import {
 } from 'lucide-react';
 import { api } from '@/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CompactStepper, SegmentedControl } from '@/components/page-ui';
+import {
+  CompactStepper,
+  PageHeader,
+  SegmentedControl,
+} from '@/components/page-ui';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { useSessionState } from '@/hooks/useSessionState';
@@ -315,21 +318,11 @@ export default function Scraping() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <header className="ui-page-header space-y-2 px-5 py-4 sm:px-6">
-        <Badge
-          variant="secondary"
-          className="gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary"
-        >
-          <Sparkles className="size-3.5" />
-          AI 辅助整理
-        </Badge>
-        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
-          岗位采集
-        </h1>
-        <p className="max-w-2xl text-sm leading-6 text-foreground-muted">
-          读取公开招聘页面，或粘贴岗位文本。识别结果由你确认后再保存。
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="智能录入"
+        title="岗位采集"
+        description="读取公开招聘页面，或粘贴岗位文本。识别结果由你确认后再保存。"
+      />
 
       <section className="glass-panel px-4 py-3" aria-label="岗位采集流程">
         <CompactStepper

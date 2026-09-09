@@ -407,13 +407,14 @@ export default function ApplicationList() {
   return (
     <div className="@container space-y-5">
       <PageHeader
-        eyebrow="Application archive"
+        eyebrow="投递记录总览"
         title="投递列表"
         description={
           <>
-            共 <span className="font-bold text-foreground ">{data.length}</span>{' '}
-            条投递记录
-            {activeFilterCount > 0 && '，当前结果已筛选'}
+            集中查看、筛选和管理{' '}
+            <span className="font-bold text-foreground">{data.length}</span>{' '}
+            条投递记录。
+            {activeFilterCount > 0 && '当前为筛选结果。'}
           </>
         }
         actions={

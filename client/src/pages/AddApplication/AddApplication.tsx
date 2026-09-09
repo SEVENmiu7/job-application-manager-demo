@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, Send } from 'lucide-react';
 import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
-import { CompactStepper } from '@/components/page-ui';
+import { CompactStepper, PageHeader } from '@/components/page-ui';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
@@ -42,6 +42,12 @@ type FormData = {
   简历标识: string;
 };
 
+const FORM_SECTION_IDS = [
+  'application-basic-information',
+  'application-progress-and-time',
+  'application-additional-information',
+] as const;
+
 const initialForm: FormData = {
   公司名称: '',
   岗位名称: '',
@@ -72,6 +78,81 @@ export default function AddApplication() {
   } = useSessionState<FormData>('add-application:form', initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [activeStep, setActiveStep] = useState<number>(0);
+
+  useEffect(() => {
+    let animationFrame: number | null = null;
+    const scrollContainer: HTMLElement | null =
+      document.querySelector('.layout-main');
+
+    const updateActiveStep = (): void => {
+      animationFrame = null;
+      const containerAtBottom: boolean = Boolean(
+        scrollContainer &&
+        scrollContainer.scrollTop > 0 &&
+        scrollContainer.scrollTop + scrollContainer.clientHeight >=
+          scrollContainer.scrollHeight - 4,
+      );
+      const windowAtBottom: boolean =
+        window.scrollY > 0 &&
+        window.scrollY + window.innerHeight >=
+          document.documentElement.scrollHeight - 4;
+
+      if (containerAtBottom || windowAtBottom) {
+        setActiveStep(FORM_SECTION_IDS.length - 1);
+        return;
+      }
+
+      const activationLine: number = Math.min(window.innerHeight * 0.25, 180);
+      let nextStep: number = 0;
+
+      FORM_SECTION_IDS.forEach((id: string, index: number) => {
+        const section: HTMLElement | null = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= activationLine) {
+          nextStep = index;
+        }
+      });
+
+      setActiveStep((current: number) =>
+        current === nextStep ? current : nextStep,
+      );
+    };
+
+    const scheduleUpdate = (): void => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(updateActiveStep);
+    };
+
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+    scrollContainer?.addEventListener('scroll', scheduleUpdate, {
+      passive: true,
+    });
+    scheduleUpdate();
+
+    return () => {
+      window.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      scrollContainer?.removeEventListener('scroll', scheduleUpdate);
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
+
+  const handleStepClick = (index: number): void => {
+    const section: HTMLElement | null = document.getElementById(
+      FORM_SECTION_IDS[index],
+    );
+    if (!section) return;
+
+    setActiveStep(index);
+    const reduceMotion: boolean = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+    section.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
   const [showFullProcess, setShowFullProcess] = useState(false);
 
   const update = (key: keyof FormData, value: any) =>
@@ -149,30 +230,22 @@ export default function AddApplication() {
 
   return (
     <div className="mx-auto max-w-[1080px] space-y-5">
-      {/* 页面标题 */}
-      <div className="ui-page-header flex items-start gap-3 px-4 py-4 sm:items-center sm:gap-4 sm:px-5 sm:py-5">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => navigate(-1)}
-          aria-label="返回"
-          className="shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-[0.14em] text-primary">
-            投递档案
-          </p>
-          <h1 className="mt-0.5 text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
-            添加投递
-          </h1>
-          <p className="mt-1 text-sm text-foreground-muted">
-            快捷录入一条新的投递记录
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="投递档案"
+        title="添加投递"
+        description="记录岗位信息、投递进度与求职材料。"
+        leading={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(-1)}
+            aria-label="返回"
+          >
+            <ArrowLeft className="size-5" />
+          </Button>
+        }
+      />
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -180,17 +253,21 @@ export default function AddApplication() {
         </div>
       )}
 
-      <CompactStepper
-        steps={[
-          { label: '基本信息' },
-          { label: '进度与时间' },
-          { label: '补充信息' },
-        ]}
-      />
+      <section className="glass-panel px-4 py-3" aria-label="添加投递流程">
+        <CompactStepper
+          activeIndex={activeStep}
+          onStepClick={handleStepClick}
+          steps={[
+            { label: '基本信息', hint: '填写公司与岗位' },
+            { label: '进度与时间', hint: '记录阶段与关键日期' },
+            { label: '补充信息', hint: '完善材料与备注' },
+          ]}
+        />
+      </section>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* 第一步：基本信息 */}
-        <FormSection step={1} title="基本信息">
+        <FormSection id={FORM_SECTION_IDS[0]} step={1} title="基本信息">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="公司名称 *" required>
               <input
@@ -257,7 +334,7 @@ export default function AddApplication() {
         </FormSection>
 
         {/* 第二步：进度与时间 */}
-        <FormSection step={2} title="进度与时间">
+        <FormSection id={FORM_SECTION_IDS[1]} step={2} title="进度与时间">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <FormField label="当前进度">
               <Select
@@ -331,7 +408,11 @@ export default function AddApplication() {
         </FormSection>
 
         {/* 第三步：补充信息 / 材料与备注 */}
-        <FormSection step={3} title="补充信息 · 材料与备注">
+        <FormSection
+          id={FORM_SECTION_IDS[2]}
+          step={3}
+          title="补充信息 · 材料与备注"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="简历标识">
               <input
@@ -403,16 +484,18 @@ export default function AddApplication() {
 }
 
 function FormSection({
+  id,
   step,
   title,
   children,
 }: {
+  id: string;
   step: number;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="ui-surface form-section p-4 sm:p-5">
+    <section id={id} className="ui-surface form-section scroll-mt-5 p-4 sm:p-5">
       <h2 className="mb-4 flex items-center gap-2 border-b border-border pb-3 text-base font-semibold text-foreground">
         <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {step}
