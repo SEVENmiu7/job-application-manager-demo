@@ -496,7 +496,7 @@ export default function ApplicationList() {
               onClick={() => setShowFilters((visible: boolean) => !visible)}
               className={`h-10 min-w-0 px-2.5 text-xs font-bold sm:px-3 sm:text-sm lg:h-11 ${
                 showFilters || activeFilterCount > 0
-                  ? 'border-cyan-300 bg-cyan-50 text-cyan-900'
+                  ? 'border-primary/60 bg-primary-soft text-primary'
                   : ''
               }`}
             >
@@ -831,16 +831,19 @@ function ApplicationStatusSelect({
 function ResumeVersionEditor({
   value,
   disabled,
+  editing,
+  onEditingChange,
   className,
   onSave,
 }: {
   value?: string | null;
   disabled: boolean;
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
   className?: string;
   onSave: (value: string) => Promise<boolean>;
 }) {
   const normalizedValue: string = value || '';
-  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(normalizedValue);
   const [submitting, setSubmitting] = useState(false);
 
@@ -851,13 +854,13 @@ function ResumeVersionEditor({
   const save = async () => {
     const nextValue: string = draft.trim();
     if (nextValue === normalizedValue.trim()) {
-      setEditing(false);
+      onEditingChange(false);
       return;
     }
     setSubmitting(true);
     try {
       const saved: boolean = await onSave(nextValue);
-      if (saved) setEditing(false);
+      if (saved) onEditingChange(false);
     } finally {
       setSubmitting(false);
     }
@@ -865,21 +868,17 @@ function ResumeVersionEditor({
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setEditing(true)}
+      <p
         className={cn(
-          'group/resume flex min-w-0 items-center gap-1.5 rounded-md text-left text-[11px] font-medium text-foreground-muted outline-none transition hover:text-cyan-800 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
+          'min-w-0 truncate text-sm font-medium',
+          normalizedValue
+            ? 'text-foreground-secondary'
+            : 'text-foreground-muted',
           className,
         )}
-        aria-label="编辑简历版本"
       >
-        <span className="min-w-0 flex-1 truncate">
-          {normalizedValue || '添加简历版本'}
-        </span>
-        <Edit2 className="size-3 shrink-0 opacity-0 transition group-hover/resume:opacity-70 group-focus-visible/resume:opacity-70" />
-      </button>
+        {normalizedValue || '暂未填写简历标识。'}
+      </p>
     );
   }
 
@@ -895,7 +894,7 @@ function ResumeVersionEditor({
       <Input
         autoFocus
         value={draft}
-        disabled={submitting}
+        disabled={submitting || disabled}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
           setDraft(event.target.value)
         }
@@ -904,23 +903,82 @@ function ResumeVersionEditor({
             event.preventDefault();
             event.stopPropagation();
             setDraft(normalizedValue);
-            setEditing(false);
+            onEditingChange(false);
           }
         }}
         className="h-8 min-w-0 flex-1 rounded-lg px-2 text-xs"
         placeholder="如：产品岗 V2"
-        aria-label="简历版本"
+        aria-label="简历标识"
       />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        disabled={submitting || disabled}
+        className="size-8 shrink-0"
+        onClick={() => {
+          setDraft(normalizedValue);
+          onEditingChange(false);
+        }}
+        aria-label="取消编辑简历标识"
+      >
+        <X className="size-3.5" />
+      </Button>
       <Button
         type="submit"
         size="icon"
-        disabled={submitting}
+        disabled={submitting || disabled}
         className="size-8 shrink-0"
-        aria-label="保存简历版本"
+        aria-label="保存简历标识"
       >
         <Check className="size-3.5" />
       </Button>
     </form>
+  );
+}
+
+function ResumeMaterialCard({
+  value,
+  saving,
+  onSave,
+}: {
+  value?: string | null;
+  saving: boolean;
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState<boolean>(false);
+
+  return (
+    <section className="rounded-xl border border-border bg-surface-elevated/85 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            <FileText className="size-4" />
+          </span>
+          简历标识
+        </div>
+        {!editing && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={saving}
+            onClick={() => setEditing(true)}
+          >
+            <Edit2 />
+            编辑
+          </Button>
+        )}
+      </div>
+      <ResumeVersionEditor
+        value={value}
+        disabled={saving}
+        editing={editing}
+        onEditingChange={setEditing}
+        className="mt-3 w-full"
+        onSave={onSave}
+      />
+    </section>
   );
 }
 
@@ -983,7 +1041,7 @@ function StageTimeCell({
             className={cn(
               'ml-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
               reviewCount > 0
-                ? 'border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300 dark:border-teal-200/30 dark:bg-teal-50/10 dark:text-teal-700'
+                ? 'border-primary/60 bg-primary-soft text-primary'
                 : 'border-primary/40 bg-primary/10 text-primary hover:border-primary/60',
             )}
             title={reviewCount > 0 ? '查看或编辑复盘' : '为这场面试写复盘'}
@@ -1035,7 +1093,7 @@ function ApplicationTableRow({
   );
 
   return (
-    <TableRow className="group border-border hover:bg-teal-50/40 dark:hover:bg-teal-50/10">
+    <TableRow className="group border-border hover:bg-primary-soft">
       <TableCell className="max-w-[220px] px-4 py-3 align-middle">
         <div className="flex items-center gap-1.5">
           <span className={cn('size-1.5 shrink-0 rounded-full', theme.dot)} />
@@ -1083,7 +1141,7 @@ function ApplicationTableRow({
           value={fields['下一步安排']}
           emptyText="暂未安排"
           disabled={saving}
-          triggerClassName="relative w-full justify-center gap-0 px-5 text-center text-[13px] font-semibold leading-5 text-teal-800 dark:text-teal-700 [&>svg]:absolute [&>svg]:right-2"
+          triggerClassName="relative w-full justify-center gap-0 px-5 text-center text-[13px] font-semibold leading-5 text-primary [&>svg]:absolute [&>svg]:right-2"
           onSave={(value: string) => onUpdate({ 下一步安排: value })}
         />
       </TableCell>
@@ -1103,7 +1161,7 @@ function ApplicationTableRow({
           className={cn(
             'inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             hasMaterials
-              ? 'border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300'
+              ? 'border-primary/40 bg-primary-soft text-primary hover:border-primary/60'
               : 'border-border bg-surface-elevated/70 text-foreground-muted hover:border-border-strong hover:text-foreground-secondary',
           )}
           aria-label="打开资料抽屉"
@@ -1208,7 +1266,7 @@ function ApplicationMobileCard({
               className={cn(
                 'ml-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
                 reviewCount > 0
-                  ? 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-200/30 dark:bg-teal-50/10 dark:text-teal-700'
+                  ? 'border-primary/60 bg-primary-soft text-primary'
                   : 'border-primary/40 bg-primary/10 text-primary',
               )}
             >
@@ -1252,7 +1310,7 @@ function ApplicationMobileCard({
         <button
           type="button"
           onClick={onOpenDetail}
-          className="inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-elevated/80 text-sm font-semibold text-foreground-secondary transition hover:border-teal-300 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-elevated/80 text-sm font-semibold text-foreground-secondary transition hover:border-primary/60 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <FolderOpen className="size-4" />
           资料
@@ -1542,31 +1600,12 @@ function ApplicationDetailDrawer({
             onSave={(value: string) => onUpdate({ 任职要求: value })}
           />
 
-          <section className="rounded-xl border border-border bg-surface-elevated/85 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <FileText className="size-4 text-teal-700" />
-                简历标识
-              </p>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="text-foreground-muted"
-              >
-                <Link to={`/applications/edit/${detail?.item.record_id || ''}`}>
-                  <Edit2 />
-                  完整编辑
-                </Link>
-              </Button>
-            </div>
-            <ResumeVersionEditor
-              value={fields?.['简历标识']}
-              disabled={saving}
-              className="mt-2 w-full"
-              onSave={(value: string) => onUpdate({ 简历标识: value })}
-            />
-          </section>
+          <ResumeMaterialCard
+            key={recordId}
+            value={fields?.['简历标识']}
+            saving={saving}
+            onSave={(value: string) => onUpdate({ 简历标识: value })}
+          />
         </div>
       </SheetContent>
     </Sheet>
@@ -1611,7 +1650,7 @@ function ProcessStageTimeline({
                 className={cn(
                   'relative z-10 size-[11px] shrink-0 rounded-full border-2',
                   time
-                    ? 'border-teal-500 bg-teal-500'
+                    ? 'border-primary bg-primary'
                     : isCurrent
                       ? 'border-primary/60 bg-surface-elevated'
                       : 'border-border-strong bg-surface-elevated',
@@ -1683,7 +1722,7 @@ function MaterialCard({
     <section className="rounded-xl border border-border bg-surface-elevated/85 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-teal-50 text-teal-700 [&>svg]:size-4">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-primary-soft text-primary [&>svg]:size-4">
             {icon}
           </span>
           {title}

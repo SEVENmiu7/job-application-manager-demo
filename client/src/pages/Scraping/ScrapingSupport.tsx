@@ -160,7 +160,7 @@ export function ResultField({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>
-        {icon && <span className="text-teal-700 [&>svg]:size-4">{icon}</span>}
+        {icon && <span className="text-primary [&>svg]:size-4">{icon}</span>}
         {label}
         {required && (
           <span className="text-red-600" aria-hidden="true">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Paperclip, Send, Loader2 } from 'lucide-react';
 import { api } from '@/api';
 import { useStats } from '@/hooks/useApplications';
 import { useSessionState } from '@/hooks/useSessionState';
@@ -12,6 +12,15 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LocationMultiSelect } from '@/components/application/LocationMultiSelect';
+import { DateTimePicker } from '@/components/application/DateTimePicker';
+import { StageTimeChips } from '@/components/application/StageTimeChips';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toDatetimeLocalValue, toUtcTimestamp } from '@/lib/application-time';
 import {
   STATUS_ORDER,
@@ -100,12 +109,12 @@ export default function EditApplication() {
             所属行业: f['所属行业'] || '',
             职能方向: f['职能方向'] || [],
             招聘渠道: f['招聘渠道'] || '',
-            收藏时间: toDatetimeLocalValue(f['收藏时间']),
-            投递时间: toDatetimeLocalValue(f['投递时间']),
+            收藏时间: toDatetimeLocalValue(f['收藏时间'], true),
+            投递时间: toDatetimeLocalValue(f['投递时间'], true),
             流程时间: Object.fromEntries(
               PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
                 stage,
-                toDatetimeLocalValue(f['流程时间']?.[stage]),
+                toDatetimeLocalValue(f['流程时间']?.[stage], true),
               ]),
             ) as Record<ApplicationProcessStage, string>,
             当前进度: f['当前进度'] || '收藏',
@@ -259,10 +268,20 @@ export default function EditApplication() {
             </FormField>
             <FormField label="所属行业">
               <Select
-                value={form.所属行业}
-                onChange={(v) => update('所属行业', v)}
-                options={INDUSTRY_OPTIONS}
-              />
+                value={form.所属行业 || undefined}
+                onValueChange={(v: string) => update('所属行业', v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((opt: string) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FormField>
           </div>
           <FormField label="职能方向">
@@ -274,7 +293,7 @@ export default function EditApplication() {
                   onClick={() => toggleFunc(fn)}
                   className={`min-h-9 rounded-lg border px-3 text-sm font-medium transition ${
                     form.职能方向.includes(fn)
-                      ? 'border-teal-300 bg-teal-50 text-teal-800 shadow-sm'
+                      ? 'border-primary/60 bg-primary-soft font-semibold text-primary shadow-sm'
                       : 'border-border bg-surface-elevated text-foreground-secondary hover:border-border-strong hover:text-foreground'
                   }`}
                 >
@@ -285,10 +304,20 @@ export default function EditApplication() {
           </FormField>
           <FormField label="招聘渠道">
             <Select
-              value={form.招聘渠道}
-              onChange={(v) => update('招聘渠道', v)}
-              options={CHANNEL_OPTIONS}
-            />
+              value={form.招聘渠道 || undefined}
+              onValueChange={(v: string) => update('招聘渠道', v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="请选择" />
+              </SelectTrigger>
+              <SelectContent>
+                {CHANNEL_OPTIONS.map((opt: string) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </FormSection>
 
@@ -296,28 +325,36 @@ export default function EditApplication() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <FormField label="当前进度">
               <Select
-                value={form.当前进度}
-                onChange={(v) => update('当前进度', v)}
-                options={STATUS_ORDER}
-              />
+                value={form.当前进度 || undefined}
+                onValueChange={(v: string) => update('当前进度', v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_ORDER.map((opt: string) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1.5 text-xs leading-5 text-foreground-muted">
                 各公司流程不同，可直接选择实际节点，不必按顺序推进。
               </p>
             </FormField>
             <FormField label="收藏时间">
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={form.收藏时间}
-                onChange={(e) => update('收藏时间', e.target.value)}
-                className="form-input"
+                onChange={(v: string) => update('收藏时间', v)}
+                placeholder="选择收藏时间"
               />
             </FormField>
             <FormField label="投递时间">
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={form.投递时间}
-                onChange={(e) => update('投递时间', e.target.value)}
-                className="form-input"
+                onChange={(v: string) => update('投递时间', v)}
+                placeholder="选择投递时间"
               />
             </FormField>
           </div>
@@ -335,50 +372,44 @@ export default function EditApplication() {
               展开完整招聘流程（测评、笔试、各轮面试与 Offer 时间）
               <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
-            <CollapsibleContent>
+            <CollapsibleContent className="pt-4">
               <FormField label="各节点时间">
-                <p className="mb-3 text-xs leading-5 text-foreground-muted">
+                <p className="mb-4 text-xs leading-5 text-foreground-muted">
                   手动填写的时间会作为基准保留；状态推进只会补充尚未记录的当前节点。
                 </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => (
-                    <label
-                      key={stage}
-                      className="space-y-1.5 text-xs font-semibold text-foreground-secondary"
-                    >
-                      <span>{stage}</span>
-                      <input
-                        type="datetime-local"
-                        value={form.流程时间[stage]}
-                        onChange={(event) =>
-                          updateProcessTime(stage, event.target.value)
-                        }
-                        className="form-input"
-                      />
-                    </label>
-                  ))}
-                </div>
+                <StageTimeChips
+                  value={form.流程时间}
+                  onChange={updateProcessTime}
+                />
               </FormField>
             </CollapsibleContent>
           </Collapsible>
         </FormSection>
 
         <FormSection step={3} title="补充信息 · 材料与备注">
-          <FormField label="简历标识">
-            <input
-              type="text"
-              value={form.简历标识}
-              onChange={(e) => update('简历标识', e.target.value)}
-              placeholder="如：2025秋-产品-v2"
-              className="form-input"
-            />
-          </FormField>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="简历标识">
+              <input
+                type="text"
+                value={form.简历标识}
+                onChange={(e) => update('简历标识', e.target.value)}
+                placeholder="如：2025秋-产品-v2"
+                className="form-input"
+              />
+            </FormField>
+            <FormField label="简历附件">
+              <div className="flex min-h-10 items-center gap-2 rounded-[10px] border border-dashed border-border-strong bg-surface-muted/60 px-3 py-2 text-xs leading-5 text-foreground-muted">
+                <Paperclip className="size-4 shrink-0" />
+                可在飞书多维表格中上传和管理简历附件
+              </div>
+            </FormField>
+          </div>
           <FormField label="个人备注">
             <textarea
               value={form.个人备注}
               onChange={(e) => update('个人备注', e.target.value)}
               placeholder="记录你的判断、联系人、沟通情况、面试感受或提醒事项……"
-              rows={4}
+              rows={3}
               className="form-input resize-y"
             />
           </FormField>
@@ -388,7 +419,7 @@ export default function EditApplication() {
                 value={form.岗位职责}
                 onChange={(e) => update('岗位职责', e.target.value)}
                 placeholder="填写岗位的主要工作内容；岗位采集后会自动填充。"
-                rows={7}
+                rows={6}
                 className="form-input resize-y"
               />
             </FormField>
@@ -397,7 +428,7 @@ export default function EditApplication() {
                 value={form.任职要求}
                 onChange={(e) => update('任职要求', e.target.value)}
                 placeholder="填写学历、经验、技能等要求；岗位采集后会自动填充。"
-                rows={7}
+                rows={6}
                 className="form-input resize-y"
               />
             </FormField>
@@ -461,30 +492,5 @@ function FormField({
       </label>
       {children}
     </div>
-  );
-}
-
-function Select({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="form-input"
-    >
-      <option value="">请选择</option>
-      {options.map((opt) => (
-        <option key={opt} value={opt}>
-          {opt}
-        </option>
-      ))}
-    </select>
   );
 }

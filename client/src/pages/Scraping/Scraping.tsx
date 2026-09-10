@@ -533,11 +533,11 @@ export default function Scraping() {
 
       {stage !== 'idle' && (
         <section
-          className="rounded-2xl border border-cyan-100 bg-gradient-to-r from-cyan-50 to-teal-50 p-5"
+          className="rounded-2xl border border-primary/20 bg-primary-soft p-5"
           aria-live="polite"
         >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-teal-950">
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
               {isProcessing ? (
                 <LoaderCircle className="size-4 animate-spin" />
               ) : (

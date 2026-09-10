@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarClock, Eye, PenLine, Plus, Trash2 } from 'lucide-react';
+import { CalendarClock, PenLine, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -159,16 +159,6 @@ export function InterviewReviewSection({
                       className="h-7 px-2 text-xs"
                       onClick={() => onEdit(review)}
                     >
-                      <Eye />
-                      查看
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => onEdit(review)}
-                    >
                       <PenLine />
                       编辑
                     </Button>
@@ -217,5 +207,3 @@ export function InterviewReviewSection({
     </section>
   );
 }
-
-

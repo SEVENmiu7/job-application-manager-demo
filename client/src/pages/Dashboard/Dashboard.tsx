@@ -868,17 +868,15 @@ export default function Dashboard() {
             className="h-10 border-border bg-surface-elevated/70 pl-9 pr-11 shadow-none"
           />
           {keyword && (
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 text-foreground-muted shadow-none hover:bg-transparent hover:text-foreground-secondary"
+              className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={clearSearch}
               aria-label="清除搜索内容"
               title="清除搜索（Esc）"
             >
-              <X />
-            </Button>
+              <X className="size-4" />
+            </button>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1118,7 +1116,7 @@ function StageColumn({
     <section
       ref={setNodeRef}
       className={`relative flex h-[620px] min-w-0 flex-col overflow-hidden rounded-xl border transition ${
-        isOver ? 'border-teal-400 ring-2 ring-ring' : 'border-border'
+        isOver ? 'border-primary/60 ring-2 ring-ring' : 'border-border'
       } ${style.column}`}
     >
       <div className={`h-0.5 shrink-0 ${style.line}`} />
@@ -1245,7 +1243,7 @@ function StageColumn({
             <div
               className={`flex h-32 items-center justify-center rounded-xl border border-dashed px-4 text-center text-xs leading-5 ${
                 isOver
-                  ? 'border-teal-400 bg-teal-50/80 font-bold text-teal-800'
+                  ? 'border-primary/60 bg-primary-soft font-bold text-primary'
                   : 'border-border text-foreground-muted'
               }`}
             >
@@ -1420,7 +1418,7 @@ function ApplicationCard({
               className={cn(
                 'mt-1 inline-flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
                 reviewCount > 0
-                  ? 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-200/30 dark:bg-teal-50/10 dark:text-teal-700'
+                  ? 'border-primary/60 bg-primary-soft text-primary'
                   : 'border-primary/40 bg-primary/10 text-primary',
               )}
             >

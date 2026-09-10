@@ -178,27 +178,6 @@
   border-top: 1px solid var(--glass-hairline);
 }
 
-.manual-sync {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.manual-sync-button {
-  width: 100%;
-  justify-content: flex-start;
-  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  color: var(--primary);
-}
-
-.manual-sync-status {
-  padding: 0 10px;
-  color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
 .layout-main {
   container-type: inline-size;
   container-name: main;
@@ -245,8 +224,6 @@
 
 .layout-sidebar-collapsed:not(.layout-sidebar-hovered) .sidebar-brand-text,
 .layout-sidebar-collapsed:not(.layout-sidebar-hovered) .nav-label,
-.layout-sidebar-collapsed:not(.layout-sidebar-hovered) .manual-sync-button span,
-.layout-sidebar-collapsed:not(.layout-sidebar-hovered) .manual-sync-status,
 .layout-sidebar-collapsed:not(.layout-sidebar-hovered) .appearance-label {
   display: none;
 }
@@ -257,8 +234,7 @@
   padding-right: 8px;
 }
 
-.layout-sidebar-collapsed:not(.layout-sidebar-hovered) .nav-item,
-.layout-sidebar-collapsed:not(.layout-sidebar-hovered) .manual-sync-button {
+.layout-sidebar-collapsed:not(.layout-sidebar-hovered) .nav-item {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;

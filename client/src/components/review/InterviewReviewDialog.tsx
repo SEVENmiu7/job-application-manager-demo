@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
+import { DateTimePicker } from '@/components/application/DateTimePicker';
 import {
   Select,
   SelectContent,
@@ -120,7 +121,10 @@ function buildInitialDraft(
 ): ReviewDraft {
   return {
     stage: review?.stage || stage,
-    interviewTimeLocal: toDatetimeLocalValue(review?.interviewTime || interviewTime),
+    interviewTimeLocal: toDatetimeLocalValue(
+      review?.interviewTime || interviewTime,
+      true,
+    ),
     format: review?.format || '',
     interviewer: review?.interviewer || '',
     overallFeeling: review?.overallFeeling || 0,
@@ -134,7 +138,7 @@ function buildInitialDraft(
     nextActions: review?.nextActions?.length
       ? review.nextActions.map((item: InterviewReviewNextAction) => ({
           ...item,
-          dueTime: item.dueTime || '',
+          dueTime: toDatetimeLocalValue(item.dueTime, true),
         }))
       : [],
   };
@@ -169,7 +173,7 @@ export function InterviewReviewDialog({
       setExpanded(false);
       setConfirmClose(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open]);
 
   const attemptClose = () => {
@@ -254,15 +258,15 @@ export function InterviewReviewDialog({
                 {draft.stage || stage}
               </span>
               <span className="text-muted-foreground">面试时间</span>
-              <Input
-                type="datetime-local"
+              <DateTimePicker
+                size="sm"
                 value={draft.interviewTimeLocal}
                 disabled={saving}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  updateDraft({ interviewTimeLocal: event.target.value })
+                onChange={(next: string) =>
+                  updateDraft({ interviewTimeLocal: next })
                 }
-                className="h-8 w-56 text-[13px]"
-                aria-label="面试时间"
+                placeholder="选择面试时间"
+                className="w-56"
               />
             </DialogDescription>
           </DialogHeader>
@@ -375,24 +379,22 @@ export function InterviewReviewDialog({
                           placeholder="行动内容，如：补一篇系统设计笔记"
                           className="h-8 min-w-0 flex-1 text-[13px]"
                         />
-                        <Input
-                          type="datetime-local"
+                        <DateTimePicker
+                          size="sm"
                           value={action.dueTime || ''}
                           disabled={saving}
-                          onChange={(
-                            event: React.ChangeEvent<HTMLInputElement>,
-                          ) =>
+                          onChange={(next: string) =>
                             updateDraft({
                               nextActions: draft.nextActions.map(
                                 (item: InterviewReviewNextAction, i: number) =>
                                   i === index
-                                    ? { ...item, dueTime: event.target.value }
+                                    ? { ...item, dueTime: next }
                                     : item,
                               ),
                             })
                           }
-                          className="h-8 w-48 text-xs"
-                          aria-label={`行动 ${index + 1} 截止时间`}
+                          placeholder="截止时间"
+                          className="w-48"
                         />
                         <Button
                           type="button"
@@ -726,5 +728,3 @@ function QuestionInput({
     </label>
   );
 }
-
-

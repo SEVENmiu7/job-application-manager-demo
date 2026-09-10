@@ -66,7 +66,10 @@ export function formatRelativeApplicationTime(
   return formatApplicationTime(value);
 }
 
-export function toDatetimeLocalValue(value?: string | null): string {
+export function toDatetimeLocalValue(
+  value?: string | null,
+  withSeconds = false,
+): string {
   const date: Date | null = parseApplicationTime(value);
   if (!date) return '';
   const parts: Intl.DateTimeFormatPart[] = new Intl.DateTimeFormat('zh-CN', {
@@ -75,13 +78,17 @@ export function toDatetimeLocalValue(value?: string | null): string {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
     hour12: false,
     timeZone: APPLICATION_TIME_ZONE,
   }).formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes): string =>
     parts.find((item: Intl.DateTimeFormatPart) => item.type === type)?.value ||
     '';
-  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+  const clockTime: string = withSeconds
+    ? `${part('hour')}:${part('minute')}:${part('second')}`
+    : `${part('hour')}:${part('minute')}`;
+  return `${part('year')}-${part('month')}-${part('day')}T${clockTime}`;
 }
 
 export function toUtcTimestamp(value?: string | null): string {

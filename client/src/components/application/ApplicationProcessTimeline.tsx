@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Check, LoaderCircle, Milestone, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { DateTimePicker } from '@/components/application/DateTimePicker';
 import {
   PROCESS_TIME_STAGES,
   type ApplicationProcessStage,
@@ -45,7 +45,7 @@ export function ApplicationProcessTimeline({
       Object.fromEntries(
         PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
           stage,
-          toDatetimeLocalValue(processTimes[stage]),
+          toDatetimeLocalValue(processTimes[stage], true),
         ]),
       ) as Record<ApplicationProcessStage, string>,
   );
@@ -56,7 +56,7 @@ export function ApplicationProcessTimeline({
         Object.fromEntries(
           PROCESS_TIME_STAGES.map((stage: ApplicationProcessStage) => [
             stage,
-            toDatetimeLocalValue(processTimes[stage]),
+            toDatetimeLocalValue(processTimes[stage], true),
           ]),
         ) as Record<ApplicationProcessStage, string>,
       );
@@ -80,7 +80,7 @@ export function ApplicationProcessTimeline({
     for (const stage of PROCESS_TIME_STAGES) {
       const originalTime: string = processTimes[stage] || '';
       const time: string =
-        draft[stage] === toDatetimeLocalValue(originalTime)
+        draft[stage] === toDatetimeLocalValue(originalTime, true)
           ? originalTime
           : toUtcTimestamp(draft[stage]);
       if (time) nextValue[stage] = time;
@@ -104,7 +104,7 @@ export function ApplicationProcessTimeline({
           type="button"
           disabled={disabled}
           className={cn(
-            'inline-flex min-w-0 items-center gap-1.5 rounded-md text-left text-xs text-foreground-muted transition hover:text-cyan-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
+            'inline-flex min-w-0 items-center gap-1.5 rounded-md text-left text-xs text-foreground-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
             compact
               ? 'max-w-full'
               : 'rounded-lg border border-border bg-surface-muted px-2.5 py-2',
@@ -112,7 +112,7 @@ export function ApplicationProcessTimeline({
           aria-label="编辑流程时间"
           title="单击记录测评与各轮面试时间"
         >
-          <Milestone className="size-3.5 shrink-0 text-cyan-700" />
+          <Milestone className="size-3.5 shrink-0 text-primary" />
           <span className="truncate">
             {focusStage && processTimes[focusStage]
               ? `${focusStage} · ${formatApplicationTime(processTimes[focusStage])}`
@@ -128,7 +128,7 @@ export function ApplicationProcessTimeline({
       >
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 font-bold text-foreground">
-            <CalendarClock className="size-4 text-cyan-700" />
+            <CalendarClock className="size-4 text-primary" />
             流程时间轴
           </div>
           <p className="mt-1 text-xs leading-5 text-foreground-muted">
@@ -146,7 +146,7 @@ export function ApplicationProcessTimeline({
                   <span
                     className={cn(
                       'size-2 rounded-full',
-                      draft[stage] ? 'bg-cyan-600' : 'bg-surface-muted',
+                      draft[stage] ? 'bg-primary' : 'bg-surface-muted',
                     )}
                   />
                   {stage}
@@ -154,13 +154,14 @@ export function ApplicationProcessTimeline({
                     <span className="sr-only">之后</span>
                   )}
                 </div>
-                <Input
-                  type="datetime-local"
+                <DateTimePicker
+                  size="sm"
                   value={draft[stage]}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  placeholder="选择时间"
+                  onChange={(next: string) =>
                     setDraft((current) => ({
                       ...current,
-                      [stage]: event.target.value,
+                      [stage]: next,
                     }))
                   }
                 />
